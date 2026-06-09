@@ -126,6 +126,7 @@ class YtDownloaderApp {
 			downloadControllers: new Map(),
 			downloadedItems: new Set(),
 			downloadQueue: [],
+			metadataFetchController: null,
 		};
 	}
 
@@ -752,14 +753,23 @@ class YtDownloaderApp {
 	 * @param {string} url The video URL.
 	 */
 	async getInfo(url) {
+		// Cancel any previous in-flight metadata fetch
+		if (this.state.metadataFetchController) {
+			this.state.metadataFetchController.abort();
+		}
+		const controller = new AbortController();
+		this.state.metadataFetchController = controller;
+
 		this._loadSettings();
 		this._defaultVideoToggle();
 		this._resetUIForNewLink();
 		this.state.videoInfo.url = url;
 
 		try {
-			const metadata = await this._fetchVideoMetadata(url);
-			console.log(metadata);
+			const metadata = await this._fetchVideoMetadata(
+				url,
+				controller.signal
+			);
 
 			const durationInt =
 				metadata.duration == null ? null : Math.ceil(metadata.duration);
@@ -776,16 +786,25 @@ class YtDownloaderApp {
 			this._populateFormatSelectors(metadata.formats || []);
 			this._displayInfoPanel();
 		} catch (error) {
+			if (error.name === "AbortError") {
+				// Previous fetch was cancelled by a new getInfo() call — nothing to show
+				return;
+			}
 			if (
 				error.message.includes("js-runtimes") &&
 				error.message.includes("no such option")
 			) {
 				this._showError(i18n.__("ytDlpUpdateRequired"), url);
+			} else if (error.message.includes("timed out")) {
+				this._showError(i18n.__("errorUrlNotAValidVideo"), url);
 			} else {
 				this._showError(error.message, url);
 			}
 		} finally {
 			$(CONSTANTS.DOM_IDS.LOADING_WRAPPER).style.display = "none";
+			if (!controller.signal.aborted) {
+				this.state.metadataFetchController = null;
+			}
 		}
 	}
 
@@ -828,7 +847,7 @@ class YtDownloaderApp {
 	 * @param {string} url The video URL.
 	 * @returns {Promise<object>} A promise that resolves with the parsed JSON metadata.
 	 */
-	_fetchVideoMetadata(url) {
+	_fetchVideoMetadata(url, signal) {
 		return new Promise((resolve, reject) => {
 			const {proxy, browserForCookies, configPath} =
 				this.state.preferences;
@@ -848,7 +867,11 @@ class YtDownloaderApp {
 				`"${url}"`,
 			].filter(Boolean);
 
-			const process = this.state.ytDlp.exec(args, {shell: true});
+			const process = this.state.ytDlp.exec(
+				args,
+				{shell: true},
+				signal
+			);
 
 			console.log(
 			"Spawned yt-dlp with args:",
@@ -857,6 +880,30 @@ class YtDownloaderApp {
 
 			let stdout = "";
 			let stderr = "";
+			let settled = false;
+
+			const settle = (fn, result) => {
+				if (!settled) {
+					settled = true;
+					fn(result);
+				}
+			};
+
+			// Timeout: kill the process if it takes too long
+			const METADATA_TIMEOUT_MS = 10000;
+			const timeoutId = setTimeout(() => {
+				try {
+					process.ytDlpProcess.kill();
+				} catch (_) {
+					// Process may already be dead
+				}
+				settle(
+					reject,
+					new Error(
+						"Metadata fetch timed out after 30 seconds. The URL may not be a valid video link."
+					)
+				);
+			}, METADATA_TIMEOUT_MS);
 
 			process.ytDlpProcess.stdout.on("data", (data) => {
 				stdout += data;
@@ -864,11 +911,13 @@ class YtDownloaderApp {
 			process.ytDlpProcess.stderr.on("data", (data) => (stderr += data));
 
 			process.on("close", () => {
+				clearTimeout(timeoutId);
 				if (stdout) {
 					try {
-						resolve(JSON.parse(stdout));
+						settle(resolve, JSON.parse(stdout));
 					} catch (e) {
-						reject(
+						settle(
+							reject,
 							new Error(
 								"Failed to parse yt-dlp JSON output: " +
 									(stderr || e.message)
@@ -876,7 +925,8 @@ class YtDownloaderApp {
 						);
 					}
 				} else {
-					reject(
+					settle(
+						reject,
 						new Error(
 							stderr || `yt-dlp exited with a non-zero code.`
 						)
@@ -884,7 +934,10 @@ class YtDownloaderApp {
 				}
 			});
 
-			process.on("error", (err) => reject(err));
+			process.on("error", (err) => {
+				clearTimeout(timeoutId);
+				settle(reject, err);
+			});
 		});
 	}
 

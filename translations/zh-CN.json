@@ -24,6 +24,7 @@
 	"here": "此处获取",
 	"processing": "处理中",
 	"errorNetworkOrUrl": "发生错误。请检查您的网络并使用正确的网址",
+	"errorUrlNotAValidVideo": "获取视频信息超时。该链接可能不是有效的视频地址，请尝试使用合集下载页面。",
 	"errorFailedFileDownload": "下载必要文件失败。请检查您的网络并重试",
 	"tryAgain": "再试一次",
 	"unknownSize": "未知大小",

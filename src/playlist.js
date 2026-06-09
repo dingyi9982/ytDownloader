@@ -18,6 +18,8 @@ const playlistDownloader = {
 		playlistName: "",
 		originalCount: 0,
 		currentDownloadProcess: null,
+		abortController: null,
+		isDownloading: false,
 	},
 
 	config: {
@@ -49,6 +51,8 @@ const playlistDownloader = {
 		downloadAudioBtn: document.getElementById("audioDownload"),
 		downloadThumbnailsBtn: document.getElementById("downloadThumbnails"),
 		saveLinksBtn: document.getElementById("saveLinks"),
+
+		cancelBtn: document.getElementById("cancelDownloadBtn"),
 
 		selectLocationBtn: document.getElementById("selectLocation"),
 		pathDisplay: document.getElementById("path"),
@@ -167,6 +171,10 @@ const playlistDownloader = {
 			this.startDownload("links")
 		);
 
+		this.ui.cancelBtn.addEventListener("click", () =>
+			this.cancelDownload()
+		);
+
 		this.ui.videoToggle.addEventListener("click", () =>
 			this.toggleDownloadType("video")
 		);
@@ -218,10 +226,14 @@ const playlistDownloader = {
 			this.showError("URL is missing. Please paste a link first.");
 			return;
 		}
+		if (this.state.isDownloading) {
+			return;
+		}
 		this.updateDynamicConfig();
 		this.hideOptions();
 
-		const controller = new AbortController();
+		this.state.abortController = new AbortController();
+		const controller = this.state.abortController;
 		const baseArgs = this.buildBaseArgs();
 		let specificArgs = [];
 
@@ -399,6 +411,8 @@ const playlistDownloader = {
 	// yt-dlp event handling
 	handleDownloadEvents(process, type) {
 		let count = 0;
+		this.state.isDownloading = true;
+		this.ui.cancelBtn.style.display = "inline-block";
 
 		process.on("ytDlpEvent", (_eventType, eventData) => {
 			const playlistTxt = "Downloading playlist: ";
@@ -459,8 +473,23 @@ const playlistDownloader = {
 			}
 		});
 
-		process.on("error", (error) => this.showError(error));
-		process.on("close", () => this.finishDownload(count));
+		process.on("error", (error) => {
+			if (error.name === "AbortError") {
+				this.handleCancel(count);
+			} else {
+				this.showError(error);
+			}
+		});
+		process.on("close", (code) => {
+			if (!this.state.isDownloading) {
+				return; // already handled by cancel/error
+			}
+			if (code === null || code === 0) {
+				this.finishDownload(count);
+			} else {
+				this.handleCancel(count);
+			}
+		});
 	},
 
 	pasteLink() {
@@ -561,6 +590,9 @@ const playlistDownloader = {
 			lastProgress.textContent = window.i18n.__("fileSaved");
 		this.ui.pasteLinkBtn.style.display = "inline-block";
 		this.ui.openDownloadsBtn.style.display = "inline-block";
+		this.ui.cancelBtn.style.display = "none";
+		this.state.isDownloading = false;
+		this.state.abortController = null;
 
 		const notify = new Notification("ytDownloader", {
 			body: window.i18n.__("playlistDownloaded"),
@@ -570,10 +602,42 @@ const playlistDownloader = {
 		notify.onclick = () => this.openDownloadsFolder();
 	},
 
+	cancelDownload() {
+		if (this.state.abortController) {
+			this.state.abortController.abort();
+		}
+		// Immediately update UI so the user sees the cancel took effect,
+		// even if the process events (error/close) are slow or skipped.
+		this.ui.pasteLinkBtn.style.display = "inline-block";
+		this.ui.openDownloadsBtn.style.display = "inline-block";
+		this.ui.cancelBtn.style.display = "none";
+		this.ui.playlistNameDisplay.textContent = "";
+		this.state.isDownloading = false;
+		this.state.abortController = null;
+	},
+
+	handleCancel(count) {
+		if (!this.state.isDownloading && !this.state.abortController) {
+			return; // already handled by cancelDownload
+		}
+		// Mark the last in-progress item as cancelled
+		const lastProgress = document.getElementById(`p${count}`);
+		if (lastProgress)
+			lastProgress.textContent = window.i18n.__("cancel");
+
+		this.ui.pasteLinkBtn.style.display = "inline-block";
+		this.ui.openDownloadsBtn.style.display = "inline-block";
+		this.ui.cancelBtn.style.display = "none";
+		this.ui.playlistNameDisplay.textContent = "";
+		this.state.isDownloading = false;
+		this.state.abortController = null;
+	},
+
 	showError(error) {
 		console.error("Download Error:", error.toString());
 		this.ui.pasteLinkBtn.style.display = "inline-block";
 		this.ui.openDownloadsBtn.style.display = "none";
+		this.ui.cancelBtn.style.display = "none";
 		this.ui.optionsContainer.style.display = "block";
 		this.ui.playlistNameDisplay.textContent = "";
 		this.ui.errorMsgDisplay.textContent =
@@ -585,6 +649,8 @@ const playlistDownloader = {
 			this.state.url
 		}</strong><br><br>${error.toString()}`;
 		// this.ui.errorDetails.title = window.i18n.__("clickToCopy");
+		this.state.isDownloading = false;
+		this.state.abortController = null;
 	},
 
 	openDownloadsFolder() {
