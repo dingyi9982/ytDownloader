@@ -1275,6 +1275,23 @@ class YtDownloaderApp {
 	}
 
 	/**
+	 * Returns a human-readable quality label for an audio format.
+	 * Falls back from format_note → bitrate → codec → "unknownQuality".
+	 * @param {object} fmt
+	 * @returns {string}
+	 */
+	_audioQualityLabel(fmt) {
+		if (fmt.format_note) {
+			const translated = i18n.__(fmt.format_note);
+			if (translated !== fmt.format_note) return translated;
+			return fmt.format_note;
+		}
+		if (fmt.abr) return `${Math.round(fmt.abr)}kbps`;
+		if (fmt.acodec && fmt.acodec !== "none") return fmt.acodec;
+		return i18n.__("unknownQuality");
+	}
+
+	/**
 	 * Populates the video and audio format <select> elements.
 	 * @param {Array} formats The formats array from yt-dlp metadata.
 	 */
@@ -1302,8 +1319,7 @@ class YtDownloaderApp {
 				format.acodec !== "none" &&
 				format.video_ext === "none"
 			) {
-				const formatNote =
-					i18n.__(format.format_note) || i18n.__("unknownQuality");
+				const formatNote = this._audioQualityLabel(format);
 				if (formatNote.length > maxAudioQualityLen) {
 					maxAudioQualityLen = formatNote.length;
 				}
@@ -1332,9 +1348,23 @@ class YtDownloaderApp {
 			}
 		});
 		if (bestMatchHeight === 0 && formats.length > 0) {
-			bestMatchHeight = Math.max(
-				...formats.filter((f) => f.height).map((f) => f.height)
-			);
+			// No format at or below the preferred quality — pick the closest
+			// available height instead of the maximum.
+			const heights = [
+				...new Set(
+					formats
+						.filter((f) => f.height && f.video_ext !== "none")
+						.map((f) => f.height)
+				),
+			];
+			if (heights.length > 0) {
+				bestMatchHeight = heights.reduce((closest, h) =>
+					Math.abs(h - videoQuality) <
+					Math.abs(closest - videoQuality)
+						? h
+						: closest
+				);
+			}
 		}
 		const availableCodecs = new Set(
 			formats
@@ -1414,8 +1444,7 @@ class YtDownloaderApp {
 				if (!showMoreFormats && format.ext === "webm") return;
 
 				const audioExt = format.ext === "webm" ? "opus" : format.ext;
-				const formatNote =
-					i18n.__(format.format_note) || i18n.__("unknownQuality");
+				const formatNote = this._audioQualityLabel(format);
 
 				const audioExtPadded = audioExt.padEnd(extPadding, NBSP);
 
