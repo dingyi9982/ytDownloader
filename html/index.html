@@ -113,6 +113,13 @@
         </div>
         <p id="title" data-translate="title">Title </p>
 
+        <div class="downloadLocationRow">
+            <label class="formatSelect" data-translate="currentDownloadLocation">Current download location -</label>
+            <span id="path"></span>
+            <button id="selectLocation" data-translate="selectDownloadLocation">Select Download
+                Location</button>
+        </div>
+
         <div class="videoAudioContainer">
             <!-- Video tab -->
             <div id="videoList">
@@ -183,20 +190,13 @@
             </div>
 
             <div class="advancedItem">
-                <div><span id="clText" data-translate="currentDownloadLocation">Current download location - </span><span
-                        id="path"></span></div>
-                <br>
-                <button id="selectLocation" class="submitBtn" data-translate="selectDownloadLocation">Select Download
-                    Location</button>
-            </div>
-
-            <div class="advancedItem">
                 <p id="subHeader" data-translate="subtitles">Subtitles</p>
                 <span id="subTxt" data-translate="downloadSubtitlesAvailable">Download subtitles if available</span>
                 <input id="subChecked" class="cb" type="checkbox">
             </div>
         </div>
 
+        <br>
         <!-- Extraction options start -->
         <div id="audioExtract">
             <h2 id="extractHeader" data-translate="extractAudio">Extract Audio</h2>
