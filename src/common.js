@@ -34,6 +34,32 @@ getId("menuIcon").addEventListener("click", () => {
 	}
 });
 
+// Close the menu when clicking anywhere outside it
+document.addEventListener("click", (e) => {
+	const menu = getId("menu");
+	const icon = getId("menuIcon");
+	if (!menu || !icon) return;
+
+	const menuDisplay = menu.style.display;
+	if (menuDisplay === "none" || menuDisplay === "") return;
+
+	if (!menu.contains(e.target) && !icon.contains(e.target)) {
+		icon.style.transform = "rotate(0deg)";
+		let count = 0;
+		let opacity = 1;
+		const fade = setInterval(() => {
+			if (count >= 10) {
+				menu.style.display = "none";
+				clearInterval(fade);
+			} else {
+				opacity -= 0.1;
+				menu.style.opacity = opacity.toFixed(3).toString();
+				count++;
+			}
+		}, 50);
+	}
+});
+
 getId("themeToggle").addEventListener("change", () => {
 	localStorage.setItem("theme", getId("themeToggle").value);
 
