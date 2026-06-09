@@ -17,6 +17,7 @@ const playlistDownloader = {
 		jsRuntimePath: null,
 		playlistName: "",
 		originalCount: 0,
+		downloadedCount: 0,
 		currentDownloadProcess: null,
 		abortController: null,
 		isDownloading: false,
@@ -415,6 +416,9 @@ const playlistDownloader = {
 		this.ui.cancelBtn.style.display = "inline-block";
 
 		process.on("ytDlpEvent", (_eventType, eventData) => {
+			// Don't process new events after cancellation
+			if (!this.state.isDownloading) return;
+
 			const playlistTxt = "Downloading playlist: ";
 			if (eventData.includes(playlistTxt)) {
 				this.state.playlistName = eventData
@@ -452,11 +456,14 @@ const playlistDownloader = {
 			) {
 				count++;
 				this.state.originalCount++;
+				this.state.downloadedCount = count;
 				this.updatePlaylistUI(count, type);
 			}
 		});
 
 		process.on("progress", (progress) => {
+			// Don't update progress after user cancelled
+			if (!this.state.isDownloading) return;
 			const progressElement = document.getElementById(`p${count}`);
 			if (!progressElement) return;
 
@@ -481,6 +488,10 @@ const playlistDownloader = {
 			}
 		});
 		process.on("close", (code) => {
+			// Clean up temp files once yt-dlp has released file handles.
+			// Small delay for the OS to fully flush/release before unlinking.
+			setTimeout(() => this.cleanupPartialFiles(), 200);
+
 			if (!this.state.isDownloading) {
 				return; // already handled by cancel/error
 			}
@@ -562,6 +573,7 @@ const playlistDownloader = {
 			this.config.playlistRange.start > 1
 				? this.config.playlistRange.start - 1
 				: 0;
+		this.state.downloadedCount = 0;
 
 		// Reset playlist name for new download
 		this.state.playlistName = "";
@@ -606,6 +618,18 @@ const playlistDownloader = {
 		if (this.state.abortController) {
 			this.state.abortController.abort();
 		}
+		// Clean up partially downloaded temp files (yt-dlp .part / .f*.* / .ytdl)
+		this.cleanupPartialFiles();
+
+		// Mark the last in-progress item as "cancelled"
+		const lastProgress = document.getElementById(
+			`p${this.state.downloadedCount}`
+		);
+		if (lastProgress) {
+			lastProgress.textContent = window.i18n.__("cancel");
+			lastProgress.style.color = "red";
+		}
+
 		// Immediately update UI so the user sees the cancel took effect,
 		// even if the process events (error/close) are slow or skipped.
 		this.ui.pasteLinkBtn.style.display = "inline-block";
@@ -616,14 +640,58 @@ const playlistDownloader = {
 		this.state.abortController = null;
 	},
 
+	cleanupPartialFiles() {
+		const dirs = [];
+		if (this.state.playlistName) {
+			const namedDir = path.join(
+				this.state.downloadDir,
+				this.state.playlistName
+			);
+			if (fs.existsSync(namedDir)) dirs.push(namedDir);
+		}
+		// Always check the download dir root as a fallback
+		if (this.state.downloadDir && fs.existsSync(this.state.downloadDir)) {
+			dirs.push(this.state.downloadDir);
+		}
+		for (const dir of dirs) {
+			try {
+				const entries = fs.readdirSync(dir);
+				for (const entry of entries) {
+					// yt-dlp temp files: .part, .ytdl, .f<number>.* fragments
+					if (
+						entry.endsWith(".part") ||
+						entry.endsWith(".ytdl") ||
+						entry.includes(".temp.") ||
+						/\.f\d+\.[^.]+$/.test(entry)
+					) {
+						const filePath = path.join(dir, entry);
+						try {
+							fs.unlinkSync(filePath);
+						} catch (_) {
+							// file may already be removed by yt-dlp
+						}
+					}
+				}
+			} catch (_) {
+				// directory may not exist
+			}
+		}
+	},
+
 	handleCancel(count) {
+		// Clean up temp files regardless of who handled UI first —
+		// file handles may not have been released at abort time.
+		this.cleanupPartialFiles();
+
 		if (!this.state.isDownloading && !this.state.abortController) {
-			return; // already handled by cancelDownload
+			return; // UI already handled by cancelDownload
 		}
 		// Mark the last in-progress item as cancelled
 		const lastProgress = document.getElementById(`p${count}`);
-		if (lastProgress)
+		if (lastProgress) {
 			lastProgress.textContent = window.i18n.__("cancel");
+			lastProgress.style.color = "red";
+		}
 
 		this.ui.pasteLinkBtn.style.display = "inline-block";
 		this.ui.openDownloadsBtn.style.display = "inline-block";
