@@ -1292,6 +1292,7 @@ class YtDownloaderApp {
 			? videoCodec
 			: [...availableCodecs].pop();
 		let isAVideoSelected = false;
+		const audioFormatsMetadata = [];
 
 		formats.forEach((format) => {
 			let sizeInMB = null;
@@ -1378,6 +1379,13 @@ class YtDownloaderApp {
 
 				audioSelect.innerHTML += option_audio;
 				audioForVideoSelect.innerHTML += option_audio;
+				audioFormatsMetadata.push({
+					format_id: format.format_id,
+					ext: audioExt,
+					sizeInMB: sizeInMB || 0,
+					format_note: format.format_note || "",
+					value: `${format.format_id}|${audioExt}`,
+				});
 			}
 		});
 
@@ -1387,6 +1395,50 @@ class YtDownloaderApp {
 			$(CONSTANTS.DOM_IDS.AUDIO_PRESENT_SECTION).style.display = "none";
 		} else {
 			$(CONSTANTS.DOM_IDS.AUDIO_PRESENT_SECTION).style.display = "block";
+
+			// Auto-select a suitable audio format based on the selected video quality
+			if (audioFormatsMetadata.length > 0) {
+				// Sort audio formats by size descending (best quality first)
+				audioFormatsMetadata.sort((a, b) => b.sizeInMB - a.sizeInMB);
+
+				// Determine which index to select based on video height
+				const selectedVideoValue = videoSelect.value;
+				const heightStr = selectedVideoValue
+					? selectedVideoValue.split("|")[2]
+					: "";
+				const videoHeight = heightStr ? parseInt(heightStr, 10) : 0;
+
+				let audioIndex;
+				if (videoHeight >= 1440) {
+					audioIndex = 0; // Best audio for 2K/4K+
+				} else if (videoHeight >= 1080) {
+					audioIndex = 0; // Best audio for 1080p
+				} else if (videoHeight >= 720) {
+					audioIndex = Math.min(
+						1,
+						audioFormatsMetadata.length - 1
+					); // Upper-mid for 720p
+				} else if (videoHeight >= 480) {
+					audioIndex = Math.min(
+						Math.floor(audioFormatsMetadata.length * 0.5),
+						audioFormatsMetadata.length - 1
+					); // Mid for 480p
+				} else {
+					audioIndex = Math.min(
+						audioFormatsMetadata.length - 1,
+						Math.floor(audioFormatsMetadata.length * 0.75)
+					); // Lower for <480p
+				}
+
+				const selectedAudio = audioFormatsMetadata[audioIndex];
+				const audioOptions = audioForVideoSelect.options;
+				for (let i = 0; i < audioOptions.length; i++) {
+					if (audioOptions[i].value === selectedAudio.value) {
+						audioOptions[i].selected = true;
+						break;
+					}
+				}
+			}
 		}
 	}
 
