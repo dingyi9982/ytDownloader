@@ -3,7 +3,7 @@ const {default: YTDlpWrap} = require("yt-dlp-wrap-plus");
 const {constants} = require("fs/promises");
 const {homedir, platform} = require("os");
 const {join} = require("path");
-const {mkdirSync, accessSync, promises, existsSync} = require("fs");
+const {mkdirSync, accessSync, promises, existsSync, readdirSync, unlinkSync} = require("fs");
 const {execSync, spawn} = require("child_process");
 
 const CONSTANTS = {
@@ -125,6 +125,7 @@ class YtDownloaderApp {
 			},
 			downloadControllers: new Map(),
 			downloadedItems: new Set(),
+			cancelledItems: new Set(),
 			downloadQueue: [],
 			metadataFetchController: null,
 		};
@@ -955,12 +956,24 @@ class YtDownloaderApp {
 		this._createDownloadUI(randomId, job);
 
 		const controller = new AbortController();
-		this.state.downloadControllers.set(randomId, controller);
+		this.state.downloadControllers.set(randomId, {
+			controller,
+			finalFilename,
+			finalExt,
+		});
 
 		const downloadProcess = this.state.ytDlp.exec(downloadArgs, {
 			shell: true,
 			detached: false,
 			signal: controller.signal,
+		});
+
+		// Store the process reference for force-kill on cancel
+		this.state.downloadControllers.set(randomId, {
+			controller,
+			process: downloadProcess,
+			finalFilename,
+			finalExt,
 		});
 
 		console.log(
@@ -990,9 +1003,6 @@ class YtDownloaderApp {
 				);
 			})
 			.once("error", (error) => {
-				this.state.downloadedItems.add(randomId);
-				this._updateClearAllButton();
-
 				this._handleDownloadError(error, randomId);
 			});
 	}
@@ -1174,21 +1184,47 @@ class YtDownloaderApp {
 	 * Handles the completion of a download process.
 	 */
 	_handleDownloadCompletion(code, randomId, filename, ext, thumbnail) {
-		this.state.currentDownloads--;
-		this.state.downloadControllers.delete(randomId);
-
-		if (code === 0) {
-			this._showDownloadSuccessUI(randomId, filename, ext, thumbnail);
-			this.state.downloadedItems.add(randomId);
-			this._updateClearAllButton();
-		} else if (code !== null) {
-			// code is null if aborted, so only show error if it's a real exit code
+		if (code !== 0 && code !== null) {
+			// real error exit code
+			this.state.currentDownloads--;
+			this.state.downloadControllers.delete(randomId);
+			this.state.cancelledItems.delete(randomId);
 			this._handleDownloadError(
 				new Error(`Download process exited with code ${code}.`),
 				randomId
 			);
+			this._processQueue();
+			if ($(CONSTANTS.DOM_IDS.QUIT_CHECKED).checked) {
+				ipcRenderer.send("quit", "quit");
+			}
+			return;
 		}
 
+		// code is 0 (success) or null (aborted)
+		// For abort: close fires after error; just ensure temp files are
+		// cleaned up and account for the slot.
+		if (code === null) {
+			if (this.state.downloadControllers.has(randomId)) {
+				// error handler may not have fired — clean up now
+				this._cleanupPartialDownload(randomId);
+				this.state.currentDownloads = Math.max(
+					0,
+					this.state.currentDownloads - 1
+				);
+				this.state.downloadControllers.delete(randomId);
+				this.state.cancelledItems.delete(randomId);
+				this._processQueue();
+			}
+			return;
+		}
+
+		// code === 0: success
+		this.state.currentDownloads--;
+		this.state.downloadControllers.delete(randomId);
+		this.state.cancelledItems.delete(randomId);
+		this._showDownloadSuccessUI(randomId, filename, ext, thumbnail);
+		this.state.downloadedItems.add(randomId);
+		this._updateClearAllButton();
 		this._processQueue();
 
 		if ($(CONSTANTS.DOM_IDS.QUIT_CHECKED).checked) {
@@ -1205,17 +1241,29 @@ class YtDownloaderApp {
 			error.message.includes("AbortError")
 		) {
 			console.log(`Download ${randomId} was aborted.`);
+			if (!this.state.downloadControllers.has(randomId)) {
+				return; // already handled by close handler
+			}
+			// Clean up partially downloaded temp files
+			this._cleanupPartialDownload(randomId);
 			this.state.currentDownloads = Math.max(
 				0,
 				this.state.currentDownloads - 1
 			);
 			this.state.downloadControllers.delete(randomId);
+			this.state.cancelledItems.delete(randomId);
 			this._processQueue();
 			return; // Don't treat user cancellation as an error
 		}
-		this.state.currentDownloads--;
-		this.state.downloadControllers.delete(randomId);
+		// Only decrement if the caller hasn't already (close handler pre-decrements)
+		if (this.state.downloadControllers.has(randomId)) {
+			this.state.currentDownloads--;
+			this.state.downloadControllers.delete(randomId);
+			this.state.cancelledItems.delete(randomId);
+		}
 		console.error("Download Error:", error);
+		this.state.downloadedItems.add(randomId);
+		this._updateClearAllButton();
 		const progressEl = $(`${randomId}_prog`);
 		if (progressEl) {
 			progressEl.textContent = i18n.__("errorHoverForDetails");
@@ -1593,6 +1641,8 @@ class YtDownloaderApp {
 	 * Updates the progress bar and speed for a download item.
 	 */
 	_updateProgressUI(randomId, progress) {
+		// Don't update UI for cancelled downloads
+		if (this.state.cancelledItems.has(randomId)) return;
 		const speedEl = $(`${randomId}_speed`);
 		const progEl = $(`${randomId}_prog`);
 		if (!speedEl || !progEl) return;
@@ -1760,9 +1810,63 @@ class YtDownloaderApp {
 	 * @param {string} id The ID of the download item.
 	 */
 	_cancelDownload(id) {
-		// If it's an active download
+		// If it's an active download, abort the process and clean up
+		// temp files immediately (best-effort; the close handler will
+		// retry once the OS has released file handles).
 		if (this.state.downloadControllers.has(id)) {
-			this.state.downloadControllers.get(id).abort();
+			const entry = this.state.downloadControllers.get(id);
+			// shell:true spawns /bin/sh; yt-dlp runs as a grandchild.
+			// Recursively walk the tree and kill from leaves to root
+			// so no process escapes when the shell dies first.
+			try {
+				const pid = entry.process.ytDlpProcess.pid;
+				if (platform() === "win32") {
+					execSync(`taskkill /pid ${pid} /T /F`);
+				} else {
+					execSync(
+						`killtree() { for p in $(pgrep -P "$1" 2>/dev/null); do killtree "$p"; done; kill -9 "$1" 2>/dev/null; }; killtree ${pid}`
+					);
+				}
+			} catch (_) {
+				// already dead
+			}
+			entry.controller.abort(); // finish the library's cleanup
+			// Try immediate cleanup — may fail if yt-dlp still holds handles,
+			// but that's fine: _handleDownloadCompletion will retry on close.
+			try {
+				const base = join(
+					this.state.downloadDir,
+					entry.finalFilename
+				);
+				const patterns = [
+					`${base}.${entry.finalExt}.part`,
+					`${base}.${entry.finalExt}.ytdl`,
+					`${base}.webp`,
+					`${base}.png`,
+					`${base}.jpg`,
+				];
+				try {
+					const dirents = readdirSync(this.state.downloadDir);
+					const prefix = `${entry.finalFilename}.`;
+					for (const f of dirents) {
+						if (
+							f.startsWith(prefix) &&
+							(f.endsWith(".part") ||
+								f.endsWith(".ytdl") ||
+								f.endsWith(".webp") ||
+								f.endsWith(".png") ||
+								f.endsWith(".jpg") ||
+								f.includes(".temp.") ||
+								/\.f\d+\.[^.]+$/.test(f))
+						) {
+							patterns.push(join(this.state.downloadDir, f));
+						}
+					}
+				} catch (_) {}
+				for (const p of patterns) {
+					try { unlinkSync(p); } catch (_) {}
+				}
+			} catch (_) {}
 		}
 		// If it's in the queue
 		this.state.downloadQueue = this.state.downloadQueue.filter(
@@ -1770,6 +1874,7 @@ class YtDownloaderApp {
 		);
 
 		// If it has been downloaded, remove from the set
+		this.state.cancelledItems.add(id);
 		this.state.downloadedItems.delete(id);
 
 		this._fadeAndRemoveItem(id);
@@ -1784,6 +1889,48 @@ class YtDownloaderApp {
 		if (item) {
 			item.classList.add("scale");
 			setTimeout(() => item.remove(), 500);
+		}
+	}
+
+	/**
+	 * Cleans up yt-dlp partial/temp files for a cancelled download.
+	 */
+	_cleanupPartialDownload(randomId) {
+		const entry = this.state.downloadControllers.get(randomId);
+		if (!entry) return;
+		const {finalFilename, finalExt} = entry;
+		const base = join(this.state.downloadDir, finalFilename);
+		const patterns = [
+			`${base}.${finalExt}.part`,
+			`${base}.${finalExt}.ytdl`,
+			`${base}.webp`,
+			`${base}.png`,
+			`${base}.jpg`,
+		];
+		// Also scan download dir for any temp / thumbnail fragments
+		// matching this filename prefix
+		try {
+			const entries = readdirSync(this.state.downloadDir);
+			const prefix = `${finalFilename}.`;
+			for (const f of entries) {
+				if (
+					f.startsWith(prefix) &&
+					(f.endsWith(".part") ||
+						f.endsWith(".ytdl") ||
+						f.endsWith(".webp") ||
+						f.endsWith(".png") ||
+						f.endsWith(".jpg") ||
+						f.includes(".temp.") ||
+						/\.f\d+\.[^.]+$/.test(f))
+				) {
+					patterns.push(join(this.state.downloadDir, f));
+				}
+			}
+		} catch (_) {}
+		for (const p of patterns) {
+			try {
+				unlinkSync(p);
+			} catch (_) {}
 		}
 	}
 

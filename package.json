@@ -19,12 +19,12 @@
 		"gh-mac": "electron-builder -m --publish=always"
 	},
 	"author": {
-		"name": "Andrew",
-		"email": "aandrew.me@pm.me"
+		"name": "Aladdin",
+		"email": "dingyi9982@qq.com"
 	},
 	"publish": {
 		"provider": "github",
-		"owner": "aandrew-me",
+		"owner": "aladdin",
 		"repo": "ytDownloader",
 		"private": false
 	},
