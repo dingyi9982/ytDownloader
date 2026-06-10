@@ -23,3 +23,7 @@ curl -L "$FF_URL" -o ffmpeg/bin/ffmpeg
 curl -L "$FP_URL" -o ffmpeg/bin/ffprobe
 chmod +x ffmpeg/bin/ffmpeg
 chmod +x ffmpeg/bin/ffprobe
+
+# Download yt-dlp (bundled, no manual download needed)
+curl -L "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos" -o yt-dlp
+chmod +x yt-dlp

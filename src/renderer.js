@@ -280,6 +280,8 @@ class YtDownloaderApp {
 		const defaultYtDlpPath = join(hiddenDir, defaultYtDlpName);
 		const isMacOS = platform() === "darwin";
 		const isFreeBSD = platform() === "freebsd";
+		const bundledName = platform() === "win32" ? "yt-dlp.exe" : "yt-dlp";
+		const bundledPath = join(__dirname, "..", bundledName);
 
 		let executablePath = null;
 
@@ -294,7 +296,12 @@ class YtDownloaderApp {
 			}
 		}
 
-		// PRIORITY 2: macOS homebrew
+		// PRIORITY 2: Bundled binary (shipped with the app)
+		else if (existsSync(bundledPath)) {
+			executablePath = bundledPath;
+		}
+
+		// PRIORITY 3: macOS homebrew
 		else if (isMacOS) {
 			const possiblePaths = [
 				"/opt/homebrew/bin/yt-dlp", // Apple Silicon
@@ -312,7 +319,7 @@ class YtDownloaderApp {
 			}
 		}
 
-		// PRIORITY 3: FreeBSD
+		// PRIORITY 4: FreeBSD
 		else if (isFreeBSD) {
 			try {
 				executablePath = execSync("which yt-dlp").toString().trim();
@@ -323,7 +330,7 @@ class YtDownloaderApp {
 			}
 		}
 
-		// PRIORITY 4: LocalStorage or Download (Windows/Linux)
+		// PRIORITY 5: LocalStorage or Download (Windows/Linux)
 		else {
 			const storedPath = localStorage.getItem(
 				CONSTANTS.LOCAL_STORAGE_KEYS.YT_DLP_PATH

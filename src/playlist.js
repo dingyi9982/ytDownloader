@@ -109,8 +109,8 @@ const playlistDownloader = {
 	},
 
 	loadInitialConfig() {
-		// yt-dlp path
-		this.state.ytDlpPath = localStorage.getItem("ytdlp");
+		// yt-dlp path — bundled binary first, then localStorage, then env var
+		this.state.ytDlpPath = this.resolveYtDlpPath();
 		this.state.ytDlpWrap = new YTDlpWrap(`"${this.state.ytDlpPath}"`);
 
 		const defaultDownloadsDir = path.join(os.homedir(), "Downloads");
@@ -774,6 +774,34 @@ const playlistDownloader = {
 		this.closeMenu();
 		const event = type === "page" ? "load-page" : "load-win";
 		ipcRenderer.send(event, path.join(__dirname, page));
+	},
+
+	resolveYtDlpPath() {
+		// 1. Bundled binary (shipped with the app, no download needed)
+		const bundledName = os.platform() === "win32" ? "yt-dlp.exe" : "yt-dlp";
+		const bundledPath = path.join(__dirname, "..", bundledName);
+		if (fs.existsSync(bundledPath)) {
+			return bundledPath;
+		}
+		// 2. Environment variable
+		if (
+			process.env.YTDOWNLOADER_YTDLP_PATH &&
+			fs.existsSync(process.env.YTDOWNLOADER_YTDLP_PATH)
+		) {
+			return process.env.YTDOWNLOADER_YTDLP_PATH;
+		}
+		// 3. localStorage (from previous manual download)
+		const storedPath = localStorage.getItem("ytdlp");
+		if (storedPath && fs.existsSync(storedPath)) {
+			return storedPath;
+		}
+		// 4. FreeBSD: system yt-dlp
+		if (os.platform() === "freebsd") {
+			try {
+				return execSync("which yt-dlp").toString("utf8").trim();
+			} catch (_) {}
+		}
+		return "";
 	},
 
 	getFfmpegPath() {

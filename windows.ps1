@@ -3,3 +3,6 @@ Invoke-WebRequest -Uri "https://github.com/aandrew-me/ffmpeg-builds/releases/dow
 Expand-Archive -Path ffmpeg_win64.zip -DestinationPath .
 Remove-Item -Path ffmpeg_win64.zip
 Move-Item -Path .\ffmpeg_win64 -Destination .\ffmpeg
+
+# Download yt-dlp (bundled, no manual download needed)
+Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile yt-dlp.exe

@@ -15,3 +15,11 @@ chmod +x ffmpeg/bin/ffmpeg
 chmod +x ffmpeg/bin/ffprobe
 chmod +x ffmpeg/bin/ffplay
 
+# Download yt-dlp (bundled, no manual download needed)
+if [ "$(uname -m)" = "aarch64" ]; then
+    wget "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_aarch64" -O yt-dlp
+else
+    wget "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux" -O yt-dlp
+fi
+chmod +x yt-dlp
+

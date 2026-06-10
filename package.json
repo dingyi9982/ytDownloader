@@ -51,7 +51,8 @@
 			"./ffmpeg/**/*",
 			"!ffmpeg.patch",
 			"translations",
-			"node*"
+			"node*",
+			"yt-dlp*"
 		],
 		"electronLanguages": [
 			"en-US"
@@ -86,11 +87,7 @@
 		},
 		"linux": {
 			"target": [
-				"Appimage",
-				"snap",
-				"rpm",
-				"zip",
-				"deb"
+				"Appimage"
 			],
 			"category": "Utility",
 			"artifactName": "${productName}_Linux.${ext}"
@@ -102,7 +99,6 @@
 		"win": {
 			"target": [
 				"nsis",
-				"msi",
 				"zip"
 			],
 			"artifactName": "${productName}_Win.${ext}"
