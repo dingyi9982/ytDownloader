@@ -144,7 +144,7 @@ class YtDownloaderApp {
 
 		try {
 			this.state.ytDlpPath = await this._findOrDownloadYtDlp();
-			this.state.ytDlp = new YTDlpWrap(`"${this.state.ytDlpPath}"`);
+			this.state.ytDlp = new YTDlpWrap(this.state.ytDlpPath);
 			this.state.ffmpegPath = await this._findFfmpeg();
 			this.state.jsRuntimePath = await this._getJsRuntimePath();
 
@@ -511,7 +511,7 @@ class YtDownloaderApp {
 
 		if (process.env.YTDOWNLOADER_NODE_PATH) {
 			if (existsSync(process.env.YTDOWNLOADER_NODE_PATH)) {
-				return `$node:"${process.env.YTDOWNLOADER_NODE_PATH}"`;
+				return `$node:${process.env.YTDOWNLOADER_NODE_PATH}`;
 			}
 
 			return "";
@@ -519,7 +519,7 @@ class YtDownloaderApp {
 
 		if (process.env.YTDOWNLOADER_DENO_PATH) {
 			if (existsSync(process.env.YTDOWNLOADER_DENO_PATH)) {
-				return `$deno:"${process.env.YTDOWNLOADER_DENO_PATH}"`;
+				return `$deno:${process.env.YTDOWNLOADER_DENO_PATH}`;
 			}
 
 			return "";
@@ -533,7 +533,7 @@ class YtDownloaderApp {
 
 			for (const p of possiblePaths) {
 				if (existsSync(p)) {
-					return `deno:"${p}"`;
+					return `deno:${p}`;
 				}
 			}
 
@@ -549,7 +549,7 @@ class YtDownloaderApp {
 		}
 
 		if (existsSync(jsRuntimePath)) {
-			return `${exeName}:"${jsRuntimePath}"`;
+			return `${exeName}:${jsRuntimePath}`;
 		} else {
 			return "";
 		}
@@ -867,24 +867,24 @@ class YtDownloaderApp {
 				proxy,
 				browserForCookies ? "--cookies-from-browser" : "",
 				browserForCookies,
-				this.state.jsRuntimePath
-					? `--no-js-runtimes --js-runtime ${this.state.jsRuntimePath}`
-					: "",
+				this.state.jsRuntimePath ? "--no-js-runtimes" : "",
+				this.state.jsRuntimePath ? "--js-runtime" : "",
+				this.state.jsRuntimePath || "",
 				configPath ? "--config-location" : "",
-				configPath ? `"${configPath}"` : "",
-				`"${url}"`,
+				configPath || "",
+				url,
 			].filter(Boolean);
 
 			const process = this.state.ytDlp.exec(
 				args,
-				{shell: true},
+				{},
 				signal
 			);
 
 			console.log(
-			"Spawned yt-dlp with args:",
-			process.ytDlpProcess.spawnargs.join(" ")
-		);
+				"Spawned yt-dlp with args:",
+				process.ytDlpProcess.spawnargs.join(" ")
+			);
 
 			let stdout = "";
 			let stderr = "";
@@ -970,7 +970,6 @@ class YtDownloaderApp {
 		});
 
 		const downloadProcess = this.state.ytDlp.exec(downloadArgs, {
-			shell: true,
 			detached: false,
 			signal: controller.signal,
 		});
@@ -988,7 +987,6 @@ class YtDownloaderApp {
 			downloadProcess.ytDlpProcess.spawnargs.join(" ")
 		);
 
-		// Attach event listeners
 		downloadProcess
 			.on("progress", (progress) => {
 				this._updateProgressUI(randomId, progress);
@@ -997,9 +995,6 @@ class YtDownloaderApp {
 				const el = $(`${randomId}_prog`);
 				if (el) el.textContent = i18n.__("downloading");
 			})
-			// .on("ytDlpEvent", (eventType, eventData) => {
-			// 	console.log(eventData)
-			// })
 			.once("close", (code) => {
 				this._handleDownloadCompletion(
 					code,
@@ -1121,10 +1116,10 @@ class YtDownloaderApp {
 			finalFilename += ` [${rangeTxt}]`;
 		}
 
-		const outputPath = `"${join(
+		const outputPath = join(
 			this.state.downloadDir,
 			`${finalFilename}.${ext}`
-		)}"`;
+		);
 
 		const baseArgs = [
 			"--no-playlist",
@@ -1134,12 +1129,12 @@ class YtDownloaderApp {
 			proxy ? "--proxy" : "",
 			proxy,
 			configPath ? "--config-location" : "",
-			configPath ? `"${configPath}"` : "",
+			configPath || "",
 			"--ffmpeg-location",
-			`"${this.state.ffmpegPath}"`,
-			this.state.jsRuntimePath
-				? `--no-js-runtimes --js-runtime ${this.state.jsRuntimePath}`
-				: "",
+			this.state.ffmpegPath,
+			this.state.jsRuntimePath ? "--no-js-runtimes" : "",
+			this.state.jsRuntimePath ? "--js-runtime" : "",
+			this.state.jsRuntimePath || "",
 		].filter(Boolean);
 
 		if (type === "audio") {
@@ -1182,7 +1177,7 @@ class YtDownloaderApp {
 			downloadArgs.push(...customArgs);
 		}
 
-		downloadArgs.push(`"${url}"`);
+		downloadArgs.push(url);
 
 		return {downloadArgs, finalFilename, finalExt: ext};
 	}
@@ -1225,7 +1220,6 @@ class YtDownloaderApp {
 			return;
 		}
 
-		// code === 0: success
 		this.state.currentDownloads--;
 		this.state.downloadControllers.delete(randomId);
 		this.state.cancelledItems.delete(randomId);
@@ -1822,9 +1816,7 @@ class YtDownloaderApp {
 		// retry once the OS has released file handles).
 		if (this.state.downloadControllers.has(id)) {
 			const entry = this.state.downloadControllers.get(id);
-			// shell:true spawns /bin/sh; yt-dlp runs as a grandchild.
-			// Recursively walk the tree and kill from leaves to root
-			// so no process escapes when the shell dies first.
+			// Kill the process tree on Windows
 			try {
 				const pid = entry.process.ytDlpProcess.pid;
 				if (platform() === "win32") {

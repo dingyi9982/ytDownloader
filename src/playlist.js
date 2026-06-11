@@ -111,7 +111,7 @@ const playlistDownloader = {
 	loadInitialConfig() {
 		// yt-dlp path — bundled binary first, then localStorage, then env var
 		this.state.ytDlpPath = this.resolveYtDlpPath();
-		this.state.ytDlpWrap = new YTDlpWrap(`"${this.state.ytDlpPath}"`);
+		this.state.ytDlpWrap = new YTDlpWrap(this.state.ytDlpPath);
 
 		const defaultDownloadsDir = path.join(os.homedir(), "Downloads");
 		let preferredDir =
@@ -256,13 +256,13 @@ const playlistDownloader = {
 		const allArgs = [
 			...baseArgs,
 			...specificArgs,
-			`"${this.state.url}"`,
+			this.state.url,
 		].filter(Boolean);
 
 		console.log(`Command: ${this.state.ytDlpPath}`, allArgs.join(" "));
 		this.state.currentDownloadProcess = this.state.ytDlpWrap.exec(
 			allArgs,
-			{shell: true, detached: false},
+			{detached: false},
 			controller.signal
 		);
 
@@ -271,20 +271,20 @@ const playlistDownloader = {
 
 	buildBaseArgs() {
 		const {start, end} = this.config.playlistRange;
-		const outputPath = `"${path.join(
+		const outputPath = path.join(
 			this.state.downloadDir,
 			this.config.foldernameFormat,
 			this.config.filenameFormat
-		)}"`;
+		);
 
 		return [
 			"--yes-playlist",
 			"-o",
 			outputPath,
 			"-I",
-			`"${start}:${end}"`,
+			`${start}:${end}`,
 			"--ffmpeg-location",
-			`"${this.state.ffmpegPath}"`,
+			this.state.ffmpegPath,
 			...(this.state.jsRuntimePath
 				? ["--no-js-runtimes", "--js-runtime", this.state.jsRuntimePath]
 				: []),
@@ -315,7 +315,7 @@ const playlistDownloader = {
 			if (videoType === "mp4") {
 				formatArgs = [
 					"-f",
-					`"bestvideo[height<=${quality}]+bestaudio[ext=m4a]/best[height<=${quality}]/best"`,
+					`bestvideo[height<=${quality}]+bestaudio[ext=m4a]/best[height<=${quality}]/best`,
 					"--merge-output-format",
 					"mp4",
 					"--recode-video",
@@ -324,7 +324,7 @@ const playlistDownloader = {
 			} else if (videoType === "webm") {
 				formatArgs = [
 					"-f",
-					`"bestvideo[height<=${quality}]+bestaudio[ext=webm]/best[height<=${quality}]/best"`,
+					`bestvideo[height<=${quality}]+bestaudio[ext=webm]/best[height<=${quality}]/best`,
 					"--merge-output-format",
 					"webm",
 					"--recode-video",
@@ -333,7 +333,7 @@ const playlistDownloader = {
 			} else {
 				formatArgs = [
 					"-f",
-					`"bv*[height=${quality}]+ba/best[height=${quality}]/best[height<=${quality}]"`,
+					`bv*[height=${quality}]+ba/best[height=${quality}]/best[height<=${quality}]`,
 				];
 			}
 		}
@@ -396,11 +396,11 @@ const playlistDownloader = {
 	},
 
 	getLinkArgs() {
-		const linksFilePath = `"${path.join(
+		const linksFilePath = path.join(
 			this.state.downloadDir,
 			this.config.foldernameFormat,
 			"links.txt"
-		)}"`;
+		);
 		return [
 			"--skip-download",
 			"--print-to-file",
@@ -562,7 +562,7 @@ const playlistDownloader = {
 			? "--cookies-from-browser"
 			: "";
 		const configPath = localStorage.getItem("configPath");
-		this.config.configFile.path = configPath ? `"${configPath}"` : "";
+		this.config.configFile.path = configPath || "";
 		this.config.configFile.arg = configPath ? "--config-location" : "";
 
 		// Playlist range from UI inputs
@@ -834,7 +834,7 @@ const playlistDownloader = {
 
 			if (process.env.YTDOWNLOADER_NODE_PATH) {
 				if (fs.existsSync(process.env.YTDOWNLOADER_NODE_PATH)) {
-					return `$node:"${process.env.YTDOWNLOADER_NODE_PATH}"`;
+					return `$node:${process.env.YTDOWNLOADER_NODE_PATH}`;
 				}
 
 				return "";
@@ -842,7 +842,7 @@ const playlistDownloader = {
 
 			if (process.env.YTDOWNLOADER_DENO_PATH) {
 				if (fs.existsSync(process.env.YTDOWNLOADER_DENO_PATH)) {
-					return `$deno:"${process.env.YTDOWNLOADER_DENO_PATH}"`;
+					return `$deno:${process.env.YTDOWNLOADER_DENO_PATH}`;
 				}
 
 				return "";
@@ -859,7 +859,7 @@ const playlistDownloader = {
 			}
 
 			if (fs.existsSync(jsRuntimePath)) {
-				return `${exeName}:"${jsRuntimePath}"`;
+				return `${exeName}:${jsRuntimePath}`;
 			} else {
 				return "";
 			}
