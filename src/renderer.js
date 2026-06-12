@@ -1637,6 +1637,11 @@ class YtDownloaderApp {
 				}
 			}
 		}
+
+		// Auto-switch to audio tab when the site only provides audio data (no video formats)
+		if (displayFormats.length === 0 && audioFormatsMetadata.length > 0) {
+			selectAudio();
+		}
 	}
 
 	/**
