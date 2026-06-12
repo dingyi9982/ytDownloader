@@ -1589,7 +1589,7 @@ class YtDownloaderApp {
 				className: "title",
 				id: CONSTANTS.DOM_IDS.TITLE_INPUT,
 				type: "text",
-				value: `${info.title} [${info.id}]`,
+				value: info.title,
 				onchange: (e) => (this.state.videoInfo.title = e.target.value),
 			})
 		);

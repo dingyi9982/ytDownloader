@@ -418,13 +418,19 @@ img {
 }
 
 #closeHidden {
-	bottom: 7px;
+	top: 7px;
 	position: absolute;
 	right: 10px;
 	cursor: pointer;
 	cursor: pointer;
 	width: 20px;
 	height: 20px;
+}
+
+#hidden br {
+	content: "";
+	display: block;
+	margin: 2px 0;
 }
 
 #hidden {
@@ -434,13 +440,19 @@ img {
 	left: 0;
 	right: 0;
 	margin: auto;
-	top: 20%;
+	top: 12%;
 	background-color: var(--box-main);
 	border-radius: 15px;
 	width: 80%;
-	padding: 10px 10px 25px 10px;
+	padding: 35px 10px 10px 10px;
 	color: var(--text);
 	border: var(--border);
+}
+
+#hidden h2,
+#options h2 {
+	margin: 8px 0;
+	font-size: 20px;
 }
 
 #videoBox,
@@ -452,8 +464,8 @@ img {
 
 #audioExtract,
 .separationBox {
-	margin: 10px;
-	padding: 10px;
+	margin: 5px;
+	padding: 8px;
 	background-color: var(--box-separation);
 	border-radius: 10px;
 }
@@ -466,11 +478,11 @@ img {
 	left: 0;
 	right: 0;
 	margin: auto;
-	top: 15%;
+	top: 12%;
 	background-color: var(--box-main);
 	width: 80%;
 	border-radius: 10px;
-	padding: 10px;
+	padding: 35px 10px 10px 10px;
 	color: var(--text);
 }
 
@@ -504,14 +516,14 @@ img {
 }
 
 .select {
-	padding: 12px 15px;
+	padding: 8px 12px;
 	background-color: var(--select);
 	color: var(--text);
 	border: none;
 	border-radius: 12px;
 	cursor: pointer;
 	font-size: large;
-	margin-bottom: 8px;
+	margin-bottom: 4px;
 	margin-left: 8px;
 	outline: none;
 	max-width: min(400px, 100%);
@@ -570,7 +582,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .submitBtn {
-	padding: 15px;
+	padding: 10px;
 	border-radius: 10px;
 	background-color: var(--greenBtn);
 	color: white;
@@ -737,10 +749,10 @@ button {
 	background-color: var(--blueBtn);
 	border: none;
 	position: relative;
-	padding: 15px;
+	padding: 10px;
 	border-radius: 10px;
 	cursor: pointer;
-	margin: 8px;
+	margin: 5px;
 	font-size: large;
 	text-decoration: none;
 }
@@ -786,8 +798,8 @@ button {
 }
 .advancedItem {
 	border-radius: 15px;
-	padding: 20px;
-	margin: 10px;
+	padding: 12px;
+	margin: 6px;
 	background-color: var(--item-bg);
 }
 
@@ -797,7 +809,7 @@ button {
 }
 
 .downloadLocationRow {
-	margin: 10px 0;
+	margin: 6px 0;
 }
 .downloadLocationRow #path {
 	font-size: small;
