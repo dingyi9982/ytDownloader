@@ -462,12 +462,23 @@ img {
 	border-radius: 10px;
 }
 
-#audioExtract,
 .separationBox {
 	margin: 5px;
 	padding: 8px;
 	background-color: var(--box-separation);
 	border-radius: 10px;
+}
+
+#audioConvertOptions {
+	margin-top: 10px;
+}
+
+#audioConvertOptions .convertRow {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	flex-wrap: wrap;
 }
 
 #options {
@@ -757,7 +768,6 @@ button {
 	outline: none;
 }
 
-#extractBtn,
 .blueBtn {
 	color: white;
 	background-color: var(--blueBtn);
@@ -771,10 +781,6 @@ button {
 	text-decoration: none;
 }
 
-#extractBtn {
-	width: 150px;
-}
-
 #download,
 #audioDownload {
 	width: 140px;
@@ -784,7 +790,6 @@ button {
 	display: none;
 }
 
-#extractBtn:active,
 .blueBtn:active {
 	background-color: var(--blueBtn-bottom);
 	border: none;

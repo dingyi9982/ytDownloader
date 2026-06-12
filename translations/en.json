@@ -65,6 +65,8 @@
 	"restart": "Restart",
 	"later": "Later",
 	"extractAudio": "Extract Audio",
+	"convertFormat": "Convert to",
+	"noConversion": "No conversion",
 	"selectVideoFormat": "Select Video Format ",
 	"selectAudioFormat": "Select Audio Format ",
 	"maxActiveDownloads": "Maximum number of active downloads",

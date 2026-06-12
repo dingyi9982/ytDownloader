@@ -161,6 +161,31 @@
                     </select>
                     <br>
                     <input type="hidden" name="url" class="url">
+                    <!-- Audio conversion options -->
+                    <div id="audioConvertOptions">
+                        <div class="convertRow">
+                            <label class="formatSelect" data-translate="convertFormat">Convert to </label>
+                            <select id="extractSelection" class="select audioSelect">
+                                <option value="none" data-translate="noConversion">No conversion</option>
+                                <option value="mp3">Mp3</option>
+                                <option value="m4a">M4a</option>
+                                <option value="opus">Opus</option>
+                                <option value="wav">Wav</option>
+                                <option value="alac">Alac</option>
+                                <option value="flac">Flac</option>
+                            </select>
+
+                            <label id="extractQualitySelectTxt" data-translate="selectQuality">Select Quality</label>
+                            <select id="extractQualitySelect" class="select audioSelect">
+                                <option id="extractQualityNormal" value="5" data-translate="qualityNormal">Normal</option>
+                                <option id="extractQualityBest" value="0" data-translate="best">Best</option>
+                                <option id="extractQualityGood" value="2" data-translate="qualityGood">Good</option>
+                                <option id="extractQualityBad" value="8" data-translate="qualityBad">Bad</option>
+                                <option id="extractQualityWorst" value="10" data-translate="qualityWorst">Worst</option>
+                            </select>
+                        </div>
+                    </div>
+                    <br>
                     <button class="submitBtn" id="audioDownload" data-translate="download">Download</button>
                     <button id="advancedAudioToggle" class="blueBtn" onClick="advancedToggle()"
                         data-translate="moreOptions">More options</button>
@@ -196,41 +221,6 @@
             </div>
         </div>
 
-        <br>
-        <!-- Extraction options start -->
-        <div id="audioExtract">
-            <h2 id="extractHeader" data-translate="extractAudio">Extract Audio</h2>
-            <div>
-                <div>
-                    <label class="formatSelect" data-translate="selectFormat">Select Format </label>
-                    <select id="extractSelection" class="select audioSelect">
-                        <option value="mp3">Mp3</option>
-                        <option value="m4a">M4a</option>
-                        <option value="opus">Opus</option>
-                        <option value="wav">Wav</option>
-                        <option value="alac">Alac</option>
-                        <option value="flac">Flac</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="extractQualitySelect" id="extractQualitySelectTxt"
-                        data-translate="selectQuality">Select
-                        Quality</label>
-                    <select id="extractQualitySelect" class="select audioSelect">
-                        <option id="extractQualityNormal" value="5" data-translate="qualityNormal">Normal</option>
-                        <option id="extractQualityBest" value="0" data-translate="best">Best</option>
-                        <option id="extractQualityGood" value="2" data-translate="qualityGood">Good</option>
-                        <option id="extractQualityBad" value="8" data-translate="qualityBad">Bad</option>
-                        <option id="extractQualityWorst" value="10" data-translate="qualityWorst">Worst</option>
-                    </select>
-                </div>
-            </div>
-
-            <br>
-            <button id="extractBtn" data-translate="extract">Extract</button>
-        </div>
-        <!-- Extraction options end -->
     </div>
 
     <!-- Downloads list -->

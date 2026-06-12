@@ -23,7 +23,6 @@ function selectVideo(){
 	videoToggle.style.backgroundColor = "var(--box-toggleOn)";
 	audioToggle.style.backgroundColor = "var(--box-toggle)";
 	getId("audioList").style.display = "none";
-	getId("audioExtract").style.display = "none";
 	getId("videoList").style.display = "block";
 }
 
@@ -33,5 +32,4 @@ function selectAudio(){
 	videoToggle.style.backgroundColor = "var(--box-toggle)";
 	getId("videoList").style.display = "none";
 	getId("audioList").style.display = "block";
-	getId("audioExtract").style.display = "block";
 }

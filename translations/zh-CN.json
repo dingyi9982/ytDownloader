@@ -66,6 +66,8 @@
 	"restart": "重新启动",
 	"later": "稍后",
 	"extractAudio": "提取音频",
+	"convertFormat": "转换为",
+	"noConversion": "不转换",
 	"selectVideoFormat": "选择视频格式 ",
 	"selectAudioFormat": "选择音频格式 ",
 	"maxActiveDownloads": "最大同时下载数",

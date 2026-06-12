@@ -635,9 +635,6 @@ class YtDownloaderApp {
 		$(CONSTANTS.DOM_IDS.AUDIO_DOWNLOAD_BTN).addEventListener("click", () =>
 			this.handleDownloadRequest("audio")
 		);
-		$(CONSTANTS.DOM_IDS.EXTRACT_BTN).addEventListener("click", () =>
-			this.handleDownloadRequest("extract")
-		);
 
 		// Show all formats checkbox
 		$(CONSTANTS.DOM_IDS.SHOW_ALL_FORMATS_CHECKBOX).addEventListener(
@@ -1101,14 +1098,20 @@ class YtDownloaderApp {
 				audioForVideoFormat_id === "none"
 					? ""
 					: `+${audioForVideoFormat_id}`;
-		} else if (type === "audio") {
-			[format_id, ext] = uiSnapshot.audioFormat.split("|");
-			ext = ext === "webm" ? "opus" : ext;
 		} else {
-			// type === 'extract'
-			ext =
-				{alac: "m4a"}[uiSnapshot.extractFormat] ||
-				uiSnapshot.extractFormat;
+			// type === 'audio'
+			// Check if conversion is requested
+			const convertFormat = uiSnapshot.extractFormat;
+			if (convertFormat && convertFormat !== "none") {
+				// Convert mode: download best audio then transcode
+				[format_id] = uiSnapshot.audioFormat.split("|");
+				ext =
+					{alac: "m4a"}[convertFormat] || convertFormat;
+			} else {
+				// Normal audio download mode
+				[format_id, ext] = uiSnapshot.audioFormat.split("|");
+				ext = ext === "webm" ? "opus" : ext;
+			}
 		}
 
 		const invalidChars =
@@ -1145,28 +1148,35 @@ class YtDownloaderApp {
 			this.state.jsRuntimePath || "",
 		].filter(Boolean);
 
-		if (type === "audio") {
-			if (ext === "m4a" || ext === "mp3" || ext === "mp4") {
-				baseArgs.unshift("--embed-thumbnail");
-			}
-		} else if (type === "extract") {
-			if (ext === "mp3" || ext === "m4a") {
-				baseArgs.unshift("--embed-thumbnail");
-			}
-		}
-
 		let downloadArgs;
-		if (type === "extract") {
-			downloadArgs = [
-				"-x",
-				"--audio-format",
-				uiSnapshot.extractFormat,
-				"--audio-quality",
-				uiSnapshot.extractQuality,
-				"-o",
-				outputPath,
-				...baseArgs,
-			];
+		if (type === "audio") {
+			const convertFormat = uiSnapshot.extractFormat;
+			if (convertFormat && convertFormat !== "none") {
+				// Convert mode: download + transcode
+				if (ext === "mp3" || ext === "m4a") {
+					baseArgs.unshift("--embed-thumbnail");
+				}
+				downloadArgs = [
+					"-x",
+					"--audio-format",
+					convertFormat,
+					"--audio-quality",
+					uiSnapshot.extractQuality,
+					"-o",
+					outputPath,
+					...baseArgs,
+				];
+			} else {
+				// Normal audio download mode
+				if (ext === "m4a" || ext === "mp3" || ext === "mp4") {
+					baseArgs.unshift("--embed-thumbnail");
+				}
+				downloadArgs = [
+					"-f", format_id,
+					"-o", outputPath,
+					...baseArgs,
+				];
+			}
 		} else {
 			const formatString =
 				type === "video" ? `${format_id}${audioFormat}` : format_id;
