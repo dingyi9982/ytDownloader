@@ -30,6 +30,7 @@ const CONSTANTS = {
 		VIDEO_FORMAT_SELECT: "videoFormatSelect",
 		AUDIO_FORMAT_SELECT: "audioFormatSelect",
 		AUDIO_FOR_VIDEO_FORMAT_SELECT: "audioForVideoFormatSelect",
+		SHOW_ALL_FORMATS_CHECKBOX: "showAllFormatsCheckbox",
 		// Download Buttons
 		VIDEO_DOWNLOAD_BTN: "videoDownload",
 		AUDIO_DOWNLOAD_BTN: "audioDownload",
@@ -74,6 +75,7 @@ const CONSTANTS = {
 		PROXY: "proxy",
 		AUTO_UPDATE: "autoUpdate",
 		CLOSE_TO_TRAY: "closeToTray",
+		SHOW_ALL_FORMATS: "showAllFormats",
 	},
 };
 
@@ -101,6 +103,7 @@ class YtDownloaderApp {
 				duration: 0,
 				extractor_key: "",
 				url: "",
+				formats: [],
 			},
 			// Download options
 			downloadOptions: {
@@ -116,6 +119,7 @@ class YtDownloaderApp {
 				videoCodec: "avc1",
 				proxy: "",
 				browserForCookies: "",
+				showAllFormats: false,
 			},
 			downloadControllers: new Map(),
 			downloadedItems: new Set(),
@@ -574,6 +578,10 @@ class YtDownloaderApp {
 			localStorage.getItem(
 				CONSTANTS.LOCAL_STORAGE_KEYS.BROWSER_COOKIES
 			) || "";
+		prefs.showAllFormats =
+			localStorage.getItem(
+				CONSTANTS.LOCAL_STORAGE_KEYS.SHOW_ALL_FORMATS
+			) === "true";
 
 		const maxDownloads = Number(
 			localStorage.getItem(CONSTANTS.LOCAL_STORAGE_KEYS.MAX_DOWNLOADS)
@@ -629,6 +637,25 @@ class YtDownloaderApp {
 		);
 		$(CONSTANTS.DOM_IDS.EXTRACT_BTN).addEventListener("click", () =>
 			this.handleDownloadRequest("extract")
+		);
+
+		// Show all formats checkbox
+		$(CONSTANTS.DOM_IDS.SHOW_ALL_FORMATS_CHECKBOX).addEventListener(
+			"change",
+			() => {
+				const checked = $(CONSTANTS.DOM_IDS.SHOW_ALL_FORMATS_CHECKBOX).checked;
+				this.state.preferences.showAllFormats = checked;
+				localStorage.setItem(
+					CONSTANTS.LOCAL_STORAGE_KEYS.SHOW_ALL_FORMATS,
+					String(checked)
+				);
+				// Re-populate format selectors with current formats
+				if (this.state.videoInfo.url) {
+					this._populateFormatSelectors(
+						this.state.videoInfo.formats || []
+					);
+				}
+			}
 		);
 
 		// UI controls
@@ -773,6 +800,7 @@ class YtDownloaderApp {
 				thumbnail: metadata.thumbnail,
 				duration: durationInt,
 				extractor_key: metadata.extractor_key,
+				formats: metadata.formats || [],
 			};
 			this.setVideoLength(durationInt);
 			this._populateFormatSelectors(metadata.formats || []);
@@ -1289,6 +1317,7 @@ class YtDownloaderApp {
 		$(CONSTANTS.DOM_IDS.ERROR_DETAILS).style.display = "none";
 		$(CONSTANTS.DOM_IDS.VIDEO_FORMAT_SELECT).innerHTML = "";
 		$(CONSTANTS.DOM_IDS.AUDIO_FORMAT_SELECT).innerHTML = "";
+		$(CONSTANTS.DOM_IDS.SHOW_ALL_FORMATS_CHECKBOX).checked = this.state.preferences.showAllFormats;
 		const noAudioTxt = i18n.__("noAudio");
 		$(
 			CONSTANTS.DOM_IDS.AUDIO_FOR_VIDEO_FORMAT_SELECT
@@ -1322,21 +1351,87 @@ class YtDownloaderApp {
 		const audioForVideoSelect = $(
 			CONSTANTS.DOM_IDS.AUDIO_FOR_VIDEO_FORMAT_SELECT
 		);
+		const showAllCheckbox = $(CONSTANTS.DOM_IDS.SHOW_ALL_FORMATS_CHECKBOX);
+
+		// Always clear previous content before repopulating
+		videoSelect.innerHTML = "";
+		audioSelect.innerHTML = "";
+		audioForVideoSelect.innerHTML = "";
 
 		const NBSP = " ";
+
+		// Collect all video formats
+		const videoFormats = formats.filter(
+			(f) => f.video_ext !== "none" && f.vcodec !== "none"
+		);
+
+		// Build resolution buckets: {height: [formats sorted by codec priority]}
+		const resolutionBuckets = new Map();
+		videoFormats.forEach((f) => {
+			const h = f.height || 0;
+			if (!resolutionBuckets.has(h)) resolutionBuckets.set(h, []);
+			resolutionBuckets.get(h).push(f);
+		});
+
+		// Codec priority: av01 > hev1 > avc1 > vp9
+		const codecPriority = {av01: 0, hev1: 1, avc1: 2, vp9: 3};
+
+		const getCodecPriority = (vcodec) => {
+			const codec = (vcodec || "").split(".")[0].toLowerCase();
+			if (codec in codecPriority) return codecPriority[codec];
+			return 99; // unknown codecs go last
+		};
+
+		// Sort formats within each bucket by codec priority
+		resolutionBuckets.forEach((bucketFormats) => {
+			bucketFormats.sort((a, b) =>
+				getCodecPriority(a.vcodec) - getCodecPriority(b.vcodec)
+			);
+		});
+
+		// Determine which formats to display, sorted by resolution ascending (small to large)
+		let displayFormats;
+		const showAll = this.state.preferences.showAllFormats || showAllCheckbox.checked;
+		if (showAll) {
+			// Show all formats, grouped by resolution ascending, codec priority within each resolution
+			const sortedHeights = [...resolutionBuckets.keys()].sort((a, b) => a - b);
+			displayFormats = [];
+			sortedHeights.forEach((h) => {
+				displayFormats.push(...resolutionBuckets.get(h));
+			});
+		} else {
+			// Only show top-priority codec per resolution
+			const topPerResolution = [];
+			resolutionBuckets.forEach((bucketFormats) => {
+				// Check if any of the priority codecs (av01, hev1, avc1, vp9) exist in this bucket
+				const foundPriority = bucketFormats.find(
+					(f) => getCodecPriority(f.vcodec) <= 3
+				);
+				if (foundPriority) {
+					topPerResolution.push(foundPriority);
+				} else {
+					// None of the priority codecs available — show all formats for this resolution
+					bucketFormats.forEach((f) => topPerResolution.push(f));
+				}
+			});
+			// Sort by resolution ascending (small to large)
+			displayFormats = topPerResolution.sort((a, b) => (a.height || 0) - (b.height || 0));
+		}
 
 		let maxVideoQualityLen = 0;
 		let maxAudioQualityLen = 0;
 
+		displayFormats.forEach((format) => {
+			const quality = `${format.height || "???"}p${
+				format.fps === 60 ? "60" : ""
+			}`;
+			if (quality.length > maxVideoQualityLen) {
+				maxVideoQualityLen = quality.length;
+			}
+		});
+
 		formats.forEach((format) => {
-			if (format.video_ext !== "none" && format.vcodec !== "none") {
-				const quality = `${format.height || "???"}p${
-					format.fps === 60 ? "60" : ""
-				}`;
-				if (quality.length > maxVideoQualityLen) {
-					maxVideoQualityLen = quality.length;
-				}
-			} else if (
+			if (
 				format.acodec !== "none" &&
 				format.video_ext === "none"
 			) {
@@ -1358,23 +1453,20 @@ class YtDownloaderApp {
 			this.state.preferences;
 		let bestMatchHeight = 0;
 
-		formats.forEach((f) => {
+		displayFormats.forEach((f) => {
 			if (
 				f.height &&
 				f.height <= videoQuality &&
-				f.height > bestMatchHeight &&
-				f.video_ext !== "none"
+				f.height > bestMatchHeight
 			) {
 				bestMatchHeight = f.height;
 			}
 		});
-		if (bestMatchHeight === 0 && formats.length > 0) {
-			// No format at or below the preferred quality — pick the closest
-			// available height instead of the maximum.
+		if (bestMatchHeight === 0 && displayFormats.length > 0) {
 			const heights = [
 				...new Set(
-					formats
-						.filter((f) => f.height && f.video_ext !== "none")
+					displayFormats
+						.filter((f) => f.height)
 						.map((f) => f.height)
 				),
 			];
@@ -1388,7 +1480,7 @@ class YtDownloaderApp {
 			}
 		}
 		const availableCodecs = new Set(
-			formats
+			displayFormats
 				.filter((f) => f.height === bestMatchHeight && f.vcodec)
 				.map((f) => f.vcodec.split(".")[0])
 		);
@@ -1398,7 +1490,7 @@ class YtDownloaderApp {
 		let isAVideoSelected = false;
 		const audioFormatsMetadata = [];
 
-		formats.forEach((format) => {
+		displayFormats.forEach((format) => {
 			let sizeInMB = null;
 			let isApprox = false;
 
@@ -1416,42 +1508,55 @@ class YtDownloaderApp {
 				? `${isApprox ? "~" : ""}${sizeInMB.toFixed(2)} MB`
 				: i18n.__("unknownSize");
 
-			if (format.video_ext !== "none" && format.vcodec !== "none") {
-				let isSelected = false;
-				if (
-					!isAVideoSelected &&
-					format.height === bestMatchHeight &&
-					format.vcodec?.startsWith(finalCodec)
-				) {
-					isSelected = true;
-					isAVideoSelected = true;
-				}
-
-				const quality = `${format.height || "???"}p${
-					format.fps === 60 ? "60" : ""
-				}`;
-				const hasAudio = format.acodec !== "none" ? " 🔊" : "";
-
-				const col1 = quality.padEnd(videoQualityPadding + 1, NBSP);
-				const col2 = format.ext.padEnd(extPadding, NBSP);
-				const col4 = displaySize.padEnd(filesizePadding, NBSP);
-
-				let optionText;
-				const vcodec = format.vcodec?.split(".")[0] || "";
-				const col3 = vcodec.padEnd(vcodecPadding, NBSP);
-				optionText = `${col1} | ${col2} | ${col3} | ${col4}${hasAudio}`;
-
-				const option = `<option value="${format.format_id}|${
-					format.ext
-				}|${format.height}|${format.vcodec}" ${
-					isSelected ? "selected" : ""
-				}>${optionText}</option>`;
-
-				videoSelect.innerHTML += option;
-			} else if (
-				format.acodec !== "none" &&
-				format.video_ext === "none"
+			let isSelected = false;
+			if (
+				!isAVideoSelected &&
+				format.height === bestMatchHeight &&
+				format.vcodec?.startsWith(finalCodec)
 			) {
+				isSelected = true;
+				isAVideoSelected = true;
+			}
+
+			const quality = `${format.height || "???"}p${
+				format.fps === 60 ? "60" : ""
+			}`;
+			const hasAudio = format.acodec !== "none" ? " 🔊" : "";
+
+			const col1 = quality.padEnd(videoQualityPadding + 1, NBSP);
+			const col2 = format.ext.padEnd(extPadding, NBSP);
+			const col4 = displaySize.padEnd(filesizePadding, NBSP);
+
+			const vcodec = format.vcodec?.split(".")[0] || "";
+			const col3 = vcodec.padEnd(vcodecPadding, NBSP);
+			const optionText = `${col1} | ${col2} | ${col3} | ${col4}${hasAudio}`;
+
+			const option = `<option value="${format.format_id}|${
+				format.ext
+			}|${format.height}|${format.vcodec}" ${
+				isSelected ? "selected" : ""
+			}>${optionText}</option>`;
+
+			videoSelect.innerHTML += option;
+		});
+
+		// Audio formats remain unchanged — always show all
+		formats.forEach((format) => {
+			if (format.acodec !== "none" && format.video_ext === "none") {
+				let sizeInMB = null;
+				let isApprox = false;
+				if (format.filesize) {
+					sizeInMB = format.filesize / 1000000;
+				} else if (format.filesize_approx) {
+					sizeInMB = format.filesize_approx / 1000000;
+					isApprox = true;
+				} else if (this.state.videoInfo.duration && format.tbr) {
+					sizeInMB = (this.state.videoInfo.duration * format.tbr) / 8192;
+					isApprox = true;
+				}
+				const displaySize = sizeInMB
+					? `${isApprox ? "~" : ""}${sizeInMB.toFixed(2)} MB`
+					: i18n.__("unknownSize");
 
 				const audioExt = format.ext === "webm" ? "opus" : format.ext;
 				const formatNote = this._audioQualityLabel(format);

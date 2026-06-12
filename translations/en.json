@@ -9,6 +9,7 @@
 	"audio": "Audio",
 	"title": "Title ",
 	"selectFormat": "Select Format ",
+	"showAllVideoFormats": "Show all video formats",
 	"download": "Download",
 	"selectDownloadLocation": "Select Download Location",
 	"moreOptions": "More options",
