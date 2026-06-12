@@ -2,7 +2,7 @@
 	"preferences": "设置",
 	"about": "关于",
 	"downloadLocation": "下载位置",
-	"currentDownloadLocation": "当前下载位置 - ",
+	"currentDownloadLocation": "当前下载位置",
 	"enableTransparentDarkMode": "启用透明深色模式 (仅限 Linux，需重新启动)",
 	"downloadingNecessaryFilesWait": "请稍候，正在下载必要文件",
 	"video": "视频",
