@@ -354,17 +354,6 @@ function registerIpcHandlers() {
 		}
 	});
 
-	ipcMain.on("select-config", async () => {
-		if (!appState.secondaryWindow) return;
-		const {canceled, filePaths} = await dialog.showOpenDialog(
-			appState.secondaryWindow,
-			{properties: ["openFile"]}
-		);
-		if (!canceled && filePaths.length > 0) {
-			appState.secondaryWindow.webContents.send("configPath", filePaths);
-		}
-	});
-
 	ipcMain.on("useTray", (_event, enabled) => {
 		appState.trayEnabled = enabled;
 		if (enabled) createTray();

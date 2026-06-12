@@ -38,7 +38,6 @@ const CONSTANTS = {
 		EXTRACT_SELECTION: "extractSelection",
 		EXTRACT_QUALITY_SELECT: "extractQualitySelect",
 		// Advanced Options
-		CUSTOM_ARGS_INPUT: "customArgsInput", // Add this line
 		START_TIME: "min-time",
 		END_TIME: "max-time",
 		MIN_SLIDER: "min-slider",
@@ -71,13 +70,10 @@ const CONSTANTS = {
 		PREFERRED_VIDEO_QUALITY: "preferredVideoQuality",
 		PREFERRED_AUDIO_QUALITY: "preferredAudioQuality",
 		PREFERRED_VIDEO_CODEC: "preferredVideoCodec",
-		SHOW_MORE_FORMATS: "showMoreFormats",
 		BROWSER_COOKIES: "browser",
 		PROXY: "proxy",
-		CONFIG_PATH: "configPath",
 		AUTO_UPDATE: "autoUpdate",
 		CLOSE_TO_TRAY: "closeToTray",
-		YT_DLP_CUSTOM_ARGS: "customYtDlpArgs",
 	},
 };
 
@@ -118,10 +114,8 @@ class YtDownloaderApp {
 				videoQuality: 1080,
 				audioQuality: "",
 				videoCodec: "avc1",
-				showMoreFormats: false,
 				proxy: "",
 				browserForCookies: "",
-				customYtDlpArgs: "",
 			},
 			downloadControllers: new Map(),
 			downloadedItems: new Set(),
@@ -574,21 +568,12 @@ class YtDownloaderApp {
 			localStorage.getItem(
 				CONSTANTS.LOCAL_STORAGE_KEYS.PREFERRED_VIDEO_CODEC
 			) || "avc1";
-		prefs.showMoreFormats =
-			localStorage.getItem(
-				CONSTANTS.LOCAL_STORAGE_KEYS.SHOW_MORE_FORMATS
-			) === "true";
 		prefs.proxy =
 			localStorage.getItem(CONSTANTS.LOCAL_STORAGE_KEYS.PROXY) || "";
 		prefs.browserForCookies =
 			localStorage.getItem(
 				CONSTANTS.LOCAL_STORAGE_KEYS.BROWSER_COOKIES
 			) || "";
-		prefs.customYtDlpArgs =
-			localStorage.getItem(
-				CONSTANTS.LOCAL_STORAGE_KEYS.YT_DLP_CUSTOM_ARGS
-			) || "";
-		prefs.configPath = localStorage.getItem(CONSTANTS.LOCAL_STORAGE_KEYS.CONFIG_PATH) || "";
 
 		const maxDownloads = Number(
 			localStorage.getItem(CONSTANTS.LOCAL_STORAGE_KEYS.MAX_DOWNLOADS)
@@ -596,7 +581,6 @@ class YtDownloaderApp {
 		this.state.maxActiveDownloads = maxDownloads >= 1 ? maxDownloads : 5;
 
 		// Update UI with loaded settings
-		$(CONSTANTS.DOM_IDS.CUSTOM_ARGS_INPUT).value = prefs.customYtDlpArgs;
 
 		const downloadDir = localStorage.getItem(
 			CONSTANTS.LOCAL_STORAGE_KEYS.DOWNLOAD_PATH
@@ -857,7 +841,7 @@ class YtDownloaderApp {
 	 */
 	_fetchVideoMetadata(url, signal) {
 		return new Promise((resolve, reject) => {
-			const {proxy, browserForCookies, configPath} =
+			const {proxy, browserForCookies} =
 				this.state.preferences;
 			const args = [
 				"-j",
@@ -870,8 +854,6 @@ class YtDownloaderApp {
 				this.state.jsRuntimePath ? "--no-js-runtimes" : "",
 				this.state.jsRuntimePath ? "--js-runtime" : "",
 				this.state.jsRuntimePath || "",
-				configPath ? "--config-location" : "",
-				configPath || "",
 				url,
 			].filter(Boolean);
 
@@ -1060,7 +1042,7 @@ class YtDownloaderApp {
 	_prepareDownloadArgs(job) {
 		const {type, url, title, options, uiSnapshot} = job;
 		const {rangeOption, rangeCmd, subs, subLangs} = options;
-		const {proxy, browserForCookies, configPath} = this.state.preferences;
+		const {proxy, browserForCookies} = this.state.preferences;
 
 		let format_id, ext, audioForVideoFormat_id, audioFormat;
 
@@ -1128,8 +1110,6 @@ class YtDownloaderApp {
 			browserForCookies,
 			proxy ? "--proxy" : "",
 			proxy,
-			configPath ? "--config-location" : "",
-			configPath || "",
 			"--ffmpeg-location",
 			this.state.ffmpegPath,
 			this.state.jsRuntimePath ? "--no-js-runtimes" : "",
@@ -1168,14 +1148,6 @@ class YtDownloaderApp {
 		if (subs) downloadArgs.push(subs);
 		if (subLangs) downloadArgs.push(subLangs);
 		if (rangeOption) downloadArgs.push(rangeOption, rangeCmd);
-
-		const customArgsString = $(
-			CONSTANTS.DOM_IDS.CUSTOM_ARGS_INPUT
-		).value.trim();
-		if (customArgsString) {
-			const customArgs = customArgsString.split(/\s+/);
-			downloadArgs.push(...customArgs);
-		}
 
 		downloadArgs.push(url);
 
@@ -1382,7 +1354,7 @@ class YtDownloaderApp {
 		const vcodecPadding = 5; // "avc1", "vp9"
 		const filesizePadding = 10; // "12.48 MB"
 
-		const {videoQuality, videoCodec, showMoreFormats} =
+		const {videoQuality, videoCodec} =
 			this.state.preferences;
 		let bestMatchHeight = 0;
 
@@ -1445,12 +1417,6 @@ class YtDownloaderApp {
 				: i18n.__("unknownSize");
 
 			if (format.video_ext !== "none" && format.vcodec !== "none") {
-				if (
-					!showMoreFormats &&
-					(format.ext === "webm" || format.vcodec?.startsWith("vp"))
-				) {
-					return;
-				}
 				let isSelected = false;
 				if (
 					!isAVideoSelected &&
@@ -1471,13 +1437,9 @@ class YtDownloaderApp {
 				const col4 = displaySize.padEnd(filesizePadding, NBSP);
 
 				let optionText;
-				if (showMoreFormats) {
-					const vcodec = format.vcodec?.split(".")[0] || "";
-					const col3 = vcodec.padEnd(vcodecPadding, NBSP);
-					optionText = `${col1} | ${col2} | ${col3} | ${col4}${hasAudio}`;
-				} else {
-					optionText = `${col1} | ${col2} | ${col4}${hasAudio}`;
-				}
+				const vcodec = format.vcodec?.split(".")[0] || "";
+				const col3 = vcodec.padEnd(vcodecPadding, NBSP);
+				optionText = `${col1} | ${col2} | ${col3} | ${col4}${hasAudio}`;
 
 				const option = `<option value="${format.format_id}|${
 					format.ext
@@ -1490,7 +1452,6 @@ class YtDownloaderApp {
 				format.acodec !== "none" &&
 				format.video_ext === "none"
 			) {
-				if (!showMoreFormats && format.ext === "webm") return;
 
 				const audioExt = format.ext === "webm" ? "opus" : format.ext;
 				const formatNote = this._audioQualityLabel(format);

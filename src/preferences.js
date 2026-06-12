@@ -83,35 +83,6 @@ ipcRenderer.on("downloadPath", (_event, downloadPath) => {
 	}
 });
 
-// Selecting config directory
-
-getId("configBtn").addEventListener("click", () => {
-	ipcRenderer.send("select-config", "");
-});
-
-ipcRenderer.on("configPath", (event, configPath) => {
-	console.log(configPath);
-	localStorage.setItem("configPath", configPath);
-	getId("configPath").textContent = configPath;
-});
-
-const configCheck = getId("configCheck");
-configCheck.addEventListener("change", (event) => {
-	if (configCheck.checked) {
-		getId("configOpts").style.display = "flex";
-	} else {
-		getId("configOpts").style.display = "none";
-		localStorage.setItem("configPath", "");
-	}
-});
-
-const configPath = localStorage.getItem("configPath");
-if (configPath) {
-	getId("configPath").textContent = configPath;
-	configCheck.checked = true;
-	getId("configOpts").style.display = "flex";
-}
-
 // Language settings
 
 const language = localStorage.getItem("locale");
@@ -188,26 +159,6 @@ if (proxy) {
 getId("proxyTxt").addEventListener("change", () => {
 	proxy = getId("proxyTxt").value;
 	localStorage.setItem("proxy", proxy);
-});
-
-// Custom yt-dlp args
-const ytDlpArgsInput = getId("customArgsInput");
-let customYtDlpArgs = localStorage.getItem("customYtDlpArgs");
-if (customYtDlpArgs) {
-	ytDlpArgsInput.value = customYtDlpArgs;
-	ytDlpArgsInput.style.height = ytDlpArgsInput.scrollHeight + "px";
-}
-ytDlpArgsInput.addEventListener("input", () => {
-	customYtDlpArgs = getId("customArgsInput").value;
-	localStorage.setItem("customYtDlpArgs", customYtDlpArgs.trim());
-	ytDlpArgsInput.style.height = "auto";
-	ytDlpArgsInput.style.height = ytDlpArgsInput.scrollHeight + "px";
-});
-
-getId("learnMoreLink").addEventListener("click", () => {
-	shell.openExternal(
-		"https://github.com/aandrew-me/ytDownloader/wiki/Custom-yt%E2%80%90dlp-options"
-	);
 });
 
 // Reload
@@ -295,20 +246,6 @@ autoUpdateDisabled.addEventListener("change", (event) => {
 const autoUpdate = localStorage.getItem("autoUpdate");
 if (autoUpdate == "false") {
 	autoUpdateDisabled.checked = true;
-}
-
-// Show more format options
-const showMoreFormats = getId("showMoreFormats");
-showMoreFormats.addEventListener("change", (event) => {
-	if (showMoreFormats.checked) {
-		localStorage.setItem("showMoreFormats", "true");
-	} else {
-		localStorage.setItem("showMoreFormats", "false");
-	}
-});
-const showMoreFormatOpts = localStorage.getItem("showMoreFormats");
-if (showMoreFormatOpts == "true") {
-	showMoreFormats.checked = true;
 }
 
 function showPopup(text, isError = false) {

@@ -31,10 +31,6 @@ const playlistDownloader = {
 			browser: "",
 			arg: "",
 		},
-		configFile: {
-			arg: "",
-			path: "",
-		},
 		playlistRange: {
 			start: 1,
 			end: "",
@@ -290,8 +286,6 @@ const playlistDownloader = {
 				: []),
 			this.config.cookie.arg,
 			this.config.cookie.browser,
-			this.config.configFile.arg,
-			this.config.configFile.path,
 			...(this.config.proxy
 				? ["--no-check-certificate", "--proxy", this.config.proxy]
 				: []),
@@ -555,15 +549,12 @@ const playlistDownloader = {
 			localStorage.getItem("filenameFormat") ||
 			"%(playlist_index)s.%(title)s.%(ext)s";
 
-		// Proxy, cookies, config file
+		// Proxy, cookies
 		this.config.proxy = localStorage.getItem("proxy") || "";
 		this.config.cookie.browser = localStorage.getItem("browser") || "";
 		this.config.cookie.arg = this.config.cookie.browser
 			? "--cookies-from-browser"
 			: "";
-		const configPath = localStorage.getItem("configPath");
-		this.config.configFile.path = configPath || "";
-		this.config.configFile.arg = configPath ? "--config-location" : "";
 
 		// Playlist range from UI inputs
 		this.config.playlistRange.start =
