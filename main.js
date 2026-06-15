@@ -256,7 +256,9 @@ function registerIpcHandlers() {
 		appState.autoUpdateEnabled = status;
 
 		if (status) {
-			autoUpdater.checkForUpdates();
+			autoUpdater.checkForUpdates().catch((err) => {
+				console.error("Auto-update check failed:", err);
+			});
 		}
 	});
 
@@ -472,7 +474,6 @@ function registerAutoUpdaterEvents() {
 
 	autoUpdater.on("error", (error) => {
 		console.error("Auto-update error:", error);
-		dialog.showErrorBox("Update Error", i18n("updateError"));
 	});
 }
 
