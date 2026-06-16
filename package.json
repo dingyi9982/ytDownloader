@@ -5,7 +5,7 @@
 		"yt-dlp-wrap-plus": "^2.4.3"
 	},
 	"name": "ytdownloader",
-	"version": "3.20.2",
+	"version": "0.0.1",
 	"main": "main.js",
 	"scripts": {
 		"start": "cross-env ELECTRON_ENABLE_LOGGING=1 electron .",
@@ -19,12 +19,12 @@
 		"gh-mac": "electron-builder -m --publish=always"
 	},
 	"author": {
-		"name": "Aladdin",
+		"name": "dingyi9982",
 		"email": "dingyi9982@qq.com"
 	},
 	"publish": {
 		"provider": "github",
-		"owner": "aladdin",
+		"owner": "dingyi9982",
 		"repo": "ytDownloader",
 		"private": false
 	},
@@ -38,7 +38,7 @@
 	},
 	"build": {
 		"productName": "YTDownloader",
-		"appId": "io.github.aandrew_me.ytdn",
+		"appId": "io.github.dingyi9982.ytdn",
 		"artifactName": "${productName}.${ext}",
 		"files": [
 			"./resources/**/*",
