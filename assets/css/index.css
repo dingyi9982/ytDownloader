@@ -576,8 +576,13 @@ img {
 	margin-left: 8px;
 }
 
+.showAllFormatsWrapper .cb {
+	position: static;
+}
+
 .showAllFormatsLabel {
-	top: 0;
+	position: static;
+	top: auto;
 	font-size: small;
 	cursor: pointer;
 	user-select: none;
