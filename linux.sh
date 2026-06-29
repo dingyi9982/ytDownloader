@@ -15,6 +15,16 @@ chmod +x ffmpeg/bin/ffmpeg
 chmod +x ffmpeg/bin/ffprobe
 chmod +x ffmpeg/bin/ffplay
 
+# Download deno (for yt-dlp JavaScript challenge solving)
+if [ "$(uname -m)" = "aarch64" ]; then
+    wget "https://github.com/denoland/deno/releases/latest/download/deno-aarch64-unknown-linux-gnu.zip" -O deno.zip
+else
+    wget "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip" -O deno.zip
+fi
+unzip -o deno.zip
+rm deno.zip
+chmod +x deno
+
 # Download yt-dlp (bundled, no manual download needed)
 if [ "$(uname -m)" = "aarch64" ]; then
     wget "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_aarch64" -O yt-dlp

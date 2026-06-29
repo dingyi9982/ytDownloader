@@ -53,6 +53,7 @@
 			"!ffmpeg.patch",
 			"translations",
 			"node*",
+			"deno*",
 			"yt-dlp*"
 		],
 		"electronLanguages": [
@@ -99,7 +100,6 @@
 		},
 		"win": {
 			"target": [
-				"nsis",
 				"zip"
 			],
 			"artifactName": "${productName}_Win.${ext}",

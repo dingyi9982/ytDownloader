@@ -505,52 +505,48 @@ class YtDownloaderApp {
 	 * @returns {Promise<string>} A promise that resolves with the JS runtime path.
 	 */
 	async _getJsRuntimePath() {
-		const exeName = "node";
+		// Check env vars first
+		if (process.env.YTDOWNLOADER_DENO_PATH) {
+			if (existsSync(process.env.YTDOWNLOADER_DENO_PATH)) {
+				return `deno:${process.env.YTDOWNLOADER_DENO_PATH}`;
+			}
+			return "";
+		}
 
 		if (process.env.YTDOWNLOADER_NODE_PATH) {
 			if (existsSync(process.env.YTDOWNLOADER_NODE_PATH)) {
-				return `$node:${process.env.YTDOWNLOADER_NODE_PATH}`;
+				return `node:${process.env.YTDOWNLOADER_NODE_PATH}`;
 			}
-
 			return "";
 		}
 
-		if (process.env.YTDOWNLOADER_DENO_PATH) {
-			if (existsSync(process.env.YTDOWNLOADER_DENO_PATH)) {
-				return `$deno:${process.env.YTDOWNLOADER_DENO_PATH}`;
+		// Try to find bundled deno (preferred by newer yt-dlp for challenge solving)
+		const denoExeName = platform() === "win32" ? "deno.exe" : "deno";
+		const bundledDenoPath = join(__dirname, "..", denoExeName);
+		if (existsSync(bundledDenoPath)) {
+			return `deno:${bundledDenoPath}`;
+		}
+
+		// Try system-installed deno
+		const denoPaths = platform() === "win32"
+			? [join(homedir(), ".deno", "bin", "deno.exe")]
+			: ["/opt/homebrew/bin/deno", "/usr/local/bin/deno", "/usr/bin/deno"];
+
+		for (const p of denoPaths) {
+			if (existsSync(p)) {
+				return `deno:${p}`;
 			}
-
-			return "";
 		}
 
-		if (platform() === "darwin") {
-			const possiblePaths = [
-				"/opt/homebrew/bin/deno",
-				"/usr/local/bin/deno",
-			];
+		// Fallback to bundled node
+		const nodeExeName = platform() === "win32" ? "node.exe" : "node";
+		const nodePath = join(__dirname, "..", nodeExeName);
 
-			for (const p of possiblePaths) {
-				if (existsSync(p)) {
-					return `deno:${p}`;
-				}
-			}
-
-			console.log("No Deno installation found");
-
-			return "";
+		if (existsSync(nodePath)) {
+			return `node:${nodePath}`;
 		}
 
-		let jsRuntimePath = join(__dirname, "..", exeName);
-
-		if (platform() === "win32") {
-			jsRuntimePath = join(__dirname, "..", `${exeName}.exe`);
-		}
-
-		if (existsSync(jsRuntimePath)) {
-			return `${exeName}:${jsRuntimePath}`;
-		} else {
-			return "";
-		}
+		return "";
 	}
 
 	/**
@@ -876,7 +872,6 @@ class YtDownloaderApp {
 				proxy,
 				browserForCookies ? "--cookies-from-browser" : "",
 				browserForCookies,
-				this.state.jsRuntimePath ? "--no-js-runtimes" : "",
 				this.state.jsRuntimePath ? "--js-runtime" : "",
 				this.state.jsRuntimePath || "",
 				url,
@@ -1143,7 +1138,6 @@ class YtDownloaderApp {
 			proxy,
 			"--ffmpeg-location",
 			this.state.ffmpegPath,
-			this.state.jsRuntimePath ? "--no-js-runtimes" : "",
 			this.state.jsRuntimePath ? "--js-runtime" : "",
 			this.state.jsRuntimePath || "",
 		].filter(Boolean);
@@ -1172,14 +1166,14 @@ class YtDownloaderApp {
 					baseArgs.unshift("--embed-thumbnail");
 				}
 				downloadArgs = [
-					"-f", format_id,
+					"-f", `${format_id}/bestaudio`,
 					"-o", outputPath,
 					...baseArgs,
 				];
 			}
 		} else {
 			const formatString =
-				type === "video" ? `${format_id}${audioFormat}` : format_id;
+				type === "video" ? `${format_id}${audioFormat}/bestvideo+bestaudio` : format_id;
 			downloadArgs = ["-f", formatString, "-o", outputPath, ...baseArgs];
 		}
 
@@ -1610,13 +1604,22 @@ class YtDownloaderApp {
 
 				// Determine which index to select based on video height
 				const selectedVideoValue = videoSelect.value;
-				const heightStr = selectedVideoValue
-					? selectedVideoValue.split("|")[2]
-					: "";
-				const videoHeight = heightStr ? parseInt(heightStr, 10) : 0;
+				const parts = selectedVideoValue
+					? selectedVideoValue.split("|")
+					: [];
+				const videoHeight = parts[2] ? parseInt(parts[2], 10) : 0;
+				const videoCodec = parts[3] || "";
 
+				// For av01 codec, prefer m4a audio to keep mp4 container
+				// (av01 + opus → webm which some players don't support)
 				let audioIndex;
-				if (videoHeight >= 1440) {
+				if (videoCodec.includes("av01")) {
+					// Find the best m4a audio format
+					const m4aIndex = audioFormatsMetadata.findIndex(
+						(f) => f.ext === "m4a"
+					);
+					audioIndex = m4aIndex >= 0 ? m4aIndex : 0;
+				} else if (videoHeight >= 1440) {
 					audioIndex = 0; // Best audio for 2K/4K+
 				} else if (videoHeight >= 1080) {
 					audioIndex = 0; // Best audio for 1080p
