@@ -69,8 +69,6 @@ const CONSTANTS = {
 		YT_DLP_PATH: "ytdlp",
 		MAX_DOWNLOADS: "maxActiveDownloads",
 		PREFERRED_VIDEO_QUALITY: "preferredVideoQuality",
-		PREFERRED_AUDIO_QUALITY: "preferredAudioQuality",
-		PREFERRED_VIDEO_CODEC: "preferredVideoCodec",
 		BROWSER_COOKIES: "browser",
 		PROXY: "proxy",
 		AUTO_UPDATE: "autoUpdate",
@@ -115,8 +113,6 @@ class YtDownloaderApp {
 			// Preferences
 			preferences: {
 				videoQuality: 1080,
-				audioQuality: "",
-				videoCodec: "avc1",
 				proxy: "",
 				browserForCookies: "",
 				showAllFormats: false,
@@ -561,14 +557,6 @@ class YtDownloaderApp {
 					CONSTANTS.LOCAL_STORAGE_KEYS.PREFERRED_VIDEO_QUALITY
 				)
 			) || 1080;
-		prefs.audioQuality =
-			localStorage.getItem(
-				CONSTANTS.LOCAL_STORAGE_KEYS.PREFERRED_AUDIO_QUALITY
-			) || "";
-		prefs.videoCodec =
-			localStorage.getItem(
-				CONSTANTS.LOCAL_STORAGE_KEYS.PREFERRED_VIDEO_CODEC
-			) || "avc1";
 		prefs.proxy =
 			localStorage.getItem(CONSTANTS.LOCAL_STORAGE_KEYS.PROXY) || "";
 		prefs.browserForCookies =
@@ -1533,8 +1521,7 @@ class YtDownloaderApp {
 		const vcodecPadding = 5; // "avc1", "vp9"
 		const filesizePadding = 10; // "12.48 MB"
 
-		const {videoQuality, videoCodec} =
-			this.state.preferences;
+		const {videoQuality} = this.state.preferences;
 		let bestMatchHeight = 0;
 
 		displayFormats.forEach((f) => {
@@ -1568,9 +1555,7 @@ class YtDownloaderApp {
 				.filter((f) => f.height === bestMatchHeight && f.vcodec)
 				.map((f) => f.vcodec.split(".")[0])
 		);
-		const finalCodec = availableCodecs.has(videoCodec)
-			? videoCodec
-			: [...availableCodecs].pop();
+		const finalCodec = [...availableCodecs][0];
 		let isAVideoSelected = false;
 		const audioFormatsMetadata = [];
 

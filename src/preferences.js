@@ -129,28 +129,6 @@ getId("preferredVideoQuality").addEventListener("change", () => {
 	localStorage.setItem("preferredVideoQuality", preferredVideoQuality);
 });
 
-// Handling preferred audio quality
-let preferredAudioQuality = localStorage.getItem("preferredAudioQuality");
-if (preferredAudioQuality) {
-	getId("preferredAudioQuality").value = preferredAudioQuality;
-}
-
-getId("preferredAudioQuality").addEventListener("change", () => {
-	preferredAudioQuality = getId("preferredAudioQuality").value;
-	localStorage.setItem("preferredAudioQuality", preferredAudioQuality);
-});
-
-// Handling preferred video codec
-let preferredVideoCodec = localStorage.getItem("preferredVideoCodec");
-if (preferredVideoCodec) {
-	getId("preferredVideoCodec").value = preferredVideoCodec;
-}
-
-getId("preferredVideoCodec").addEventListener("change", () => {
-	preferredVideoCodec = getId("preferredVideoCodec").value;
-	localStorage.setItem("preferredVideoCodec", preferredVideoCodec);
-});
-
 // Proxy
 let proxy = localStorage.getItem("proxy");
 if (proxy) {

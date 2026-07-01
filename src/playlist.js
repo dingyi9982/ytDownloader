@@ -133,11 +133,6 @@ const playlistDownloader = {
 				"preferredVideoQuality"
 			);
 		}
-		if (localStorage.getItem("preferredAudioQuality")) {
-			this.ui.audioQualitySelect.value = localStorage.getItem(
-				"preferredAudioQuality"
-			);
-		}
 	},
 
 	initEventListeners() {
