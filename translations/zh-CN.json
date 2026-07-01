@@ -114,7 +114,7 @@
 	"preferredVideoCodec": "偏好视频编码器",
 	"showMoreFormatOptions": "显示更多格式选项",
 	"flatsealPermissionWarning": "您需要授予应用程序访问家目录的权限才能使用此功能。您可以使用 Flatseal 并通过 'filesystem=home' 文本来启用权限",
-	"noAudio": "无音频",
+	"noAudio": "视频轨自带音频",
 	"proxy": "代理",
 	"clearDownloads": "清除下载项目",
 	"compressor": "压缩器",
