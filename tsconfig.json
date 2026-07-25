@@ -2,9 +2,17 @@
     "compilerOptions": {
         "allowJs": true,
         "checkJs": true,
+        "noEmit": true,
+        "target": "ES2021",
+        "moduleResolution": "node",
+        "skipLibCheck": true,
         "lib": [
-            "ES2021.String",
+            "ES2021",
             "DOM",
         ]
-    }
+    },
+    "exclude": [
+        "release",
+        "node_modules"
+    ]
 }

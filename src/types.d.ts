@@ -23,7 +23,19 @@ type info = {
     extractor_key: string,
 }
 
-export {
+declare global {
+    const i18n: any;
+    interface Window {
+        i18n: any;
+    }
+    interface Process {
+        windowsStore: any;
+    }
+}
+
+declare module "yt-dlp-wrap-plus";
+
+export{
     format,
     info
 }

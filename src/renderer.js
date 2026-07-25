@@ -82,6 +82,10 @@ const CONSTANTS = {
  * @param {string} id The ID of the DOM element.
  * @returns {HTMLElement | null}
  */
+/**
+ * @param {string} id
+ * @return {any}
+ */
 const $ = (id) => document.getElementById(id);
 
 class YtDownloaderApp {
@@ -1761,7 +1765,7 @@ class YtDownloaderApp {
 
 		document
 			.querySelectorAll(CONSTANTS.DOM_IDS.URL_INPUTS)
-			.forEach((el) => {
+			.forEach((/** @type {any} */ el) => {
 				el.value = info.url;
 			});
 
@@ -1813,7 +1817,7 @@ class YtDownloaderApp {
 		const progEl = $(`${randomId}_prog`);
 		if (!speedEl || !progEl) return;
 
-		let fillEl = progEl.querySelector(".custom-progress-fill");
+		let fillEl = /** @type {any} */ (progEl.querySelector(".custom-progress-fill"));
 
 		if (!fillEl) {
 			progEl.innerHTML = "";
@@ -2233,7 +2237,7 @@ class YtDownloaderApp {
 	 * @param {Event} e
 	 */
 	_handleTimeInputChange = (e) => {
-		const input = e.target;
+		const input = /** @type {any} */ (e.target);
 		let newSeconds = this.parseTime(input.value);
 		const minSlider = $("min-slider");
 		const maxSlider = $("max-slider");
