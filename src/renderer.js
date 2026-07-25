@@ -1432,7 +1432,9 @@ class YtDownloaderApp {
 
 		const NBSP = " ";
 
-		// Collect all video formats
+		// Collect all video formats (including HLS/m3u8 progressive formats that
+		// bundle video + audio in a single stream). Size estimation for m3u8
+		// formats is corrected below via cross-referencing their DASH equivalents.
 		const videoFormats = formats.filter(
 			(f) => f.video_ext !== "none" && f.vcodec !== "none"
 		);
@@ -1559,6 +1561,43 @@ class YtDownloaderApp {
 		let isAVideoSelected = false;
 		const audioFormatsMetadata = [];
 
+		// --- Pre-compute size references for m3u8/HLS formats ---
+		// HLS formats report peak bandwidth as `tbr` (not average bitrate) and lack
+		// an exact `filesize`, so the naive estimate duration*tbr/8192 is wildly
+		// inflated (e.g. 3x too high). Instead, cross-reference the corresponding
+		// DASH/https video format (same codec + resolution) which carries a reliable
+		// `filesize`, and add the audio size when the HLS format is progressive.
+		const dashVideoByKey = new Map();
+		formats.forEach((f) => {
+			if (
+				f.video_ext !== "none" &&
+				f.vcodec !== "none" &&
+				!(f.protocol || "").startsWith("m3u8")
+			) {
+				const key = `${(f.vcodec || "").split(".")[0]}_${f.height}`;
+				if (!dashVideoByKey.has(key)) dashVideoByKey.set(key, f);
+			}
+		});
+		// Smallest audio-only filesize by acodec prefix (for progressive estimates)
+		const audioBytesByCodec = {};
+		formats.forEach((f) => {
+			if (f.acodec !== "none" && f.video_ext === "none") {
+				const codec = (f.acodec || "").split(".")[0];
+				const bytes =
+					f.filesize ||
+					f.filesize_approx ||
+					(this.state.videoInfo.duration && f.tbr
+						? (this.state.videoInfo.duration * f.tbr * 1000) / 8
+						: 0);
+				if (
+					bytes &&
+					(!audioBytesByCodec[codec] || bytes < audioBytesByCodec[codec])
+				) {
+					audioBytesByCodec[codec] = bytes;
+				}
+			}
+		});
+
 		displayFormats.forEach((format) => {
 			let sizeInMB = null;
 			let isApprox = false;
@@ -1568,6 +1607,32 @@ class YtDownloaderApp {
 			} else if (format.filesize_approx) {
 				sizeInMB = format.filesize_approx / 1000000;
 				isApprox = true;
+			} else if ((format.protocol || "").startsWith("m3u8")) {
+				// HLS/m3u8: `tbr` is peak bandwidth — cross-reference the DASH
+				// equivalent (same codec + resolution) for a reliable size.
+				const dashRef = dashVideoByKey.get(
+					`${(format.vcodec || "").split(".")[0]}_${format.height}`
+				);
+				if (dashRef) {
+					let bytes =
+						dashRef.filesize ||
+						dashRef.filesize_approx ||
+						(this.state.videoInfo.duration && dashRef.tbr
+							? (this.state.videoInfo.duration * dashRef.tbr * 1000) / 8
+							: 0);
+					if (bytes && format.acodec && format.acodec !== "none") {
+						bytes +=
+							audioBytesByCodec[(format.acodec || "").split(".")[0]] || 0;
+					}
+					if (bytes) {
+						sizeInMB = bytes / 1000000;
+						isApprox = true;
+					}
+				} else if (this.state.videoInfo.duration && format.tbr) {
+					// No DASH reference — fall back to tbr estimate (best effort)
+					sizeInMB = (this.state.videoInfo.duration * format.tbr) / 8192;
+					isApprox = true;
+				}
 			} else if (this.state.videoInfo.duration && format.tbr) {
 				sizeInMB = (this.state.videoInfo.duration * format.tbr) / 8192;
 				isApprox = true;
